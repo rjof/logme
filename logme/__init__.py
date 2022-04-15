@@ -2,9 +2,21 @@
 
 from dotenv import load_dotenv
 from os import path, environ
+import configparser
+from pathlib import Path
+import typer
 
 __app_name__ = "logme"
 __version__ = "0.1.0"
+
+
+CONFIG_DIR_PATH = Path(typer.get_app_dir(__app_name__))
+CONFIG_FILE_PATH = CONFIG_DIR_PATH / "config.ini"
+
+config_parser = configparser.ConfigParser()
+config_parser.read(CONFIG_FILE_PATH)
+sources = config_parser.get("Sources", "src").split(",")
+
 
 (
     SUCCESS,
@@ -40,4 +52,3 @@ creds_dict = {
     "auth_provider_x509_cert_url" : environ.get('auth_provider_x509_cert_url'),
     "client_x509_cert_url"        : environ.get('client_x509_cert_url')
 }
-

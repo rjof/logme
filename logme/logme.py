@@ -11,6 +11,10 @@ class CurrentLogme(NamedTuple):
     error: int
 
 
+class DownloadDrive:
+    """Class to download log files from Google Drive."""
+    # @todo
+
 class Todoer:
     def __init__(self, db_path: Path) -> None:
         self._db_handler = DatabaseHandler(db_path)

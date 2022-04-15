@@ -3,7 +3,8 @@
 from pathlib import Path
 from typing import List, Optional
 import typer
-from logme import ERRORS, __app_name__, __version__, config, database, logme, creds_dict
+from logme import (ERRORS, __app_name__, __version__, 
+config, database, logme, creds_dict, sources)
 
 app = typer.Typer()
 
@@ -18,9 +19,6 @@ def init(
     ),
 ) -> None:
     """Initialize the logme database."""
-    print()
-    print(f"__init__.creds_dict: {creds_dict}")
-    print()
     app_init_error = config.init_app(db_path)
     if app_init_error:
         typer.secho(
@@ -56,6 +54,32 @@ def get_todoer() -> logme.Todoer:
             fg=typer.colors.RED,
         )
         raise typer.Exit(1)
+
+
+@app.command(name="source")
+def process_src(src: str = typer.Argument(...)) -> None:
+    """Process a source."""
+    if src in sources:
+        print(f"sources: {sources}")
+    else:
+        typer.secho(
+            f'There is not a source {src}.',
+            fg=typer.colors.RED,
+        )
+        raise typer.Exit(1)
+    # todoer = get_todoer()
+    # todo, error = todoer.set_done(todo_id)
+    # if error:
+    #     typer.secho(
+    #         f'Completing to-do # "{todo_id}" failed with "{ERRORS[error]}"',
+    #         fg=typer.colors.RED,
+    #     )
+    #     raise typer.Exit(1)
+    # else:
+    #     typer.secho(
+    #         f"""to-do # {todo_id} "{todo['Description']}" completed!""",
+    #         fg=typer.colors.GREEN,
+    #     )
 
 
 @app.command()
