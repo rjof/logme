@@ -1,22 +1,23 @@
 """This module provides the logme CLI."""
-
+import posixpath
+from os import makedirs, path
 from pathlib import Path
 from typing import List, Optional
 import typer
-from logme import (ERRORS, __app_name__, __version__, 
-config, database, logme, creds_dict, sources)
+from logme import (ERRORS, __app_name__, __version__,
+                   config, database, logme, sources)
 
 app = typer.Typer()
 
 
 @app.command()
 def init(
-    db_path: str = typer.Option(
-        str(database.DEFAULT_DB_FILE_PATH),
-        "--db-path",
-        "-db",
-        prompt="logme database location?",
-    ),
+        db_path: str = typer.Option(
+            str(database.DEFAULT_DB_FILE_PATH),
+            "--db-path",
+            "-db",
+            prompt="logme database location?",
+        ),
 ) -> None:
     """Initialize the logme database."""
     app_init_error = config.init_app(db_path)
@@ -57,35 +58,36 @@ def get_todoer() -> logme.Todoer:
 
 
 @app.command(name="source")
-def process_src(src: str = typer.Argument(...)) -> None:
+def process_src(src: str =
+                typer.Argument(sources,
+                               help="Choose ono of the implemented sources.")) \
+        -> int:
     """Process a source."""
-    if src in sources:
-        print(f"sources: {sources}")
-    else:
+    if not src in sources:
         typer.secho(
             f'There is not a source {src}.',
             fg=typer.colors.RED,
         )
         raise typer.Exit(1)
-    # todoer = get_todoer()
-    # todo, error = todoer.set_done(todo_id)
-    # if error:
-    #     typer.secho(
-    #         f'Completing to-do # "{todo_id}" failed with "{ERRORS[error]}"',
-    #         fg=typer.colors.RED,
-    #     )
-    #     raise typer.Exit(1)
-    # else:
-    #     typer.secho(
-    #         f"""to-do # {todo_id} "{todo['Description']}" completed!""",
-    #         fg=typer.colors.GREEN,
-    #     )
+    if not config.CONFIG_FILE_PATH.exists():
+        typer.secho(
+            'Config file not found.',
+            fg=typer.colors.RED,
+        )
+        raise typer.Exit(1)
+    dst = logme.get_local_storage_path(config.CONFIG_FILE_PATH)
+    if not dst.exists():
+        print(f"Creates directory: {dst}")
+        makedirs(dst)
+    print(f"dst: {dst}")
+    downloader = logme.GoogleDriveDownloader(src, dst)
+    return downloader.download(src, dst)
 
 
 @app.command()
 def add(
-    description: List[str] = typer.Argument(...),
-    priority: int = typer.Option(2, "--priority", "-p", min=1, max=3),
+        description: List[str] = typer.Argument(...),
+        priority: int = typer.Option(2, "--priority", "-p", min=1, max=3),
 ) -> None:
     """Add a new to-do with a DESCRIPTION."""
     todoer = get_todoer()
@@ -155,13 +157,13 @@ def set_done(todo_id: int = typer.Argument(...)) -> None:
 
 @app.command()
 def remove(
-    todo_id: int = typer.Argument(...),
-    force: bool = typer.Option(
-        False,
-        "--force",
-        "-f",
-        help="Force deletion without confirmation.",
-    ),
+        todo_id: int = typer.Argument(...),
+        force: bool = typer.Option(
+            False,
+            "--force",
+            "-f",
+            help="Force deletion without confirmation.",
+        ),
 ) -> None:
     """Remove a to-do using its TODO_ID."""
     todoer = get_todoer()
@@ -200,11 +202,11 @@ def remove(
 
 @app.command(name="clear")
 def remove_all(
-    force: bool = typer.Option(
-        ...,
-        prompt="Delete all to-dos?",
-        help="Force deletion without confirmation.",
-    ),
+        force: bool = typer.Option(
+            ...,
+            prompt="Delete all to-dos?",
+            help="Force deletion without confirmation.",
+        ),
 ) -> None:
     """Remove all to-dos."""
     todoer = get_todoer()
@@ -230,13 +232,13 @@ def _version_callback(value: bool) -> None:
 
 @app.callback()
 def main(
-    version: Optional[bool] = typer.Option(
-        None,
-        "--version",
-        "-v",
-        help="Show the application's version and exit.",
-        callback=_version_callback,
-        is_eager=True,
-    )
+        version: Optional[bool] = typer.Option(
+            None,
+            "--version",
+            "-v",
+            help="Show the application's version and exit.",
+            callback=_version_callback,
+            is_eager=True,
+        )
 ) -> None:
     return
