@@ -4,19 +4,21 @@ Python package to collect some logs of my personal life.
 - Clone the repo
 - Install requirements.txt: ```pip install requirements.txt```
 - Create the file ```.env``` with your credentials, for example:
-```aidl
-aTimeLogger_user = your@emal.com
+```
+aTimeLogger_user = your@email.com
 aTimeLogger_pass = your_password
 ```
 # Usage
 To create the database
 ```python -m logme init```
 
-The file _config.ini_ should be created. For example in linux it is in _/home/<your_user>/.config/logme/config.ini_
+The file _config.ini_ should be created. 
+For example in linux it is in 
+_/home/<your_user>/.config/logme/config.ini_
 
 Insert configuration for processing data. For example:
 
-```aidl
+```
 [Sources]
 src = aTimeLogger                                                                                                                                                                       
 [LocalPaths]
@@ -27,7 +29,7 @@ days_to_retrieve_api = 7
 ```
 
 To process data in your aTimeLogger account:
-```aidl
+```
 python -m logme source aTimeLogger
 ```
 
@@ -36,13 +38,18 @@ python -m logme source aTimeLogger
 
 # Notes
 
- The code base is the application [Build a Command-Line To-Do App With Python and Typer](https://realpython.com/python-typer-cli/) and the code is still full of useless for this project as you can see running
+ The code base is the application 
+ [Build a Command-Line To-Do App With Python and Typer](https://realpython.com/python-typer-cli/)
+ and this project is full legacy to be cleaned (I've done this 
+ to learn some python).
 
-```aidl
+ You can see this printing the help.
+
+```
 python -m logme --help
 ```
 
-<code><pre>
+<pre><code>
 Usage: logme [OPTIONS] COMMAND [ARGS]...
 Options:
   -v, --version         Show the application's version and exit.
@@ -59,4 +66,4 @@ Commands:
   <del>list      List all to-dos.</del>
   <del>remove    Remove a to-do using its TODO_ID.</del>
   source    Process a source.
-</pre></code>
+</code></pre>
