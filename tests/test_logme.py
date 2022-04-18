@@ -23,6 +23,11 @@ def test_version():
     assert f"{__app_name__} v{__version__}\n" in result.stdout
 
 
+def test_config():
+        conf = logme.get_source_conf('aTimeLogger')
+        assert type(conf['days_to_retrieve_api']) == float
+
+
 @pytest.fixture
 def mock_json_file(tmp_path):
     todo = [{"Description": "Get some milk.", "Priority": 2, "Done": False}]

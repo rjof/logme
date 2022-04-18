@@ -23,19 +23,22 @@ def init(
     app_init_error = config.init_app(db_path)
     if app_init_error:
         typer.secho(
-            f'Creating config file failed with "{ERRORS[app_init_error]}"',
+            f'Creating config file failed with '
+            f'"{ERRORS[app_init_error]}"',
             fg=typer.colors.RED,
         )
         raise typer.Exit(1)
     db_init_error = database.init_database(Path(db_path))
     if db_init_error:
         typer.secho(
-            f'Creating database failed with "{ERRORS[db_init_error]}"',
+            f'Creating database failed with '
+            f'"{ERRORS[db_init_error]}"',
             fg=typer.colors.RED,
         )
         raise typer.Exit(1)
     else:
-        typer.secho(f"The logme database is {db_path}", fg=typer.colors.GREEN)
+        typer.secho(f"The logme database is "
+                    f"{db_path}", fg=typer.colors.GREEN)
 
 
 def get_todoer() -> logme.Todoer:
@@ -57,32 +60,64 @@ def get_todoer() -> logme.Todoer:
         raise typer.Exit(1)
 
 
+def get_ProcessATimeLoggerApi(src: str) -> logme.ProcessATimeLoggerApi:
+    if config.CONFIG_FILE_PATH.exists():
+        db_path = database.get_database_path(config.CONFIG_FILE_PATH)
+    else:
+        typer.secho(
+            'Config file not found. Please, run "logme init"',
+            fg=typer.colors.RED,
+        )
+        raise typer.Exit(1)
+    if db_path.exists():
+        return logme.ProcessATimeLoggerApi(src, db_path)
+    else:
+        typer.secho(
+            'Database not found. Please, run "logme init"',
+            fg=typer.colors.RED,
+        )
+        raise typer.Exit(1)
+
+
 @app.command(name="source")
 def process_src(src: str =
                 typer.Argument(sources,
                                help="Choose ono of the implemented sources.")) \
         -> int:
     """Process a source."""
-    if not src in sources:
-        typer.secho(
-            f'There is not a source {src}.',
-            fg=typer.colors.RED,
-        )
-        raise typer.Exit(1)
+
     if not config.CONFIG_FILE_PATH.exists():
         typer.secho(
             'Config file not found.',
             fg=typer.colors.RED,
         )
         raise typer.Exit(1)
+
+    if not src in sources:
+        typer.secho(
+            f'There is not a source {src}.',
+            fg=typer.colors.RED,
+        )
+        raise typer.Exit(1)
+
     dst = logme.get_local_storage_path(config.CONFIG_FILE_PATH)
     if not dst.exists():
         print(f"Creates directory: {dst}")
         makedirs(dst)
     print(f"dst: {dst}")
-    downloader = logme.GoogleDriveDownloader(src, dst)
-    return downloader.download(src, dst)
-
+    conf = logme.get_source_conf(src)
+    print(f"src config: {src}\n{conf}")
+    if conf['connection'] == 'GoogleDrive':
+        downloader = logme.GoogleDriveDownloader(src, dst)
+        return downloader.download(src, dst)
+    if conf['connection'] == 'api':
+        downloader = logme.ATimeLoggerApi(src, dst)
+        # Download json with aTimeLogger api
+        downloader.download(src, dst)
+        # Process downloaded with pandas
+        processor = get_ProcessATimeLoggerApi(dst)
+        result = processor.process(dst)
+    return result
 
 @app.command()
 def add(
