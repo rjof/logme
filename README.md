@@ -34,7 +34,45 @@ python -m logme source aTimeLogger
 ```
 
 # Sources
- - aTimeLogger app
+## aTimeLogger app
+@todo: description
+
+## duolingo unofficial api
+As an example of the use of the api and to use it in the roadmap of this package it's only saved the **achievements** which is when you gain a crown.
+
+The intervals between achievements will be used to generate rules.
+
+# Storage
+The collected data is saved in a sqlite database in the table **logme** with the structure:
+
+*A hash of the row, not in use for the time being*
+
+Column('hash',         Integer, primary_key = True),
+
+*The activity to which a group belongs, i.e.* **this book**, *belongs to the group* **reading**
+
+Column('in_group',     String),
+
+*The activity*
+
+Column('activity',     String),
+
+*Any comment*
+
+Column('comment',      String),
+
+*Duration in seconds of the activity*
+
+Column('duration_sec', Integer),
+
+*Beginning unix timestamp of the activity*
+
+Column('ts_from',      Integer),
+
+*Finishing unix timestamp of the activity*
+
+Column('ts_to',        Integer),
+
 
 # Notes
 

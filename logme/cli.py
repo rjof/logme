@@ -6,6 +6,7 @@ from typing import List, Optional
 import typer
 from logme import (ERRORS, __app_name__, __version__,
                    config, database, logme, sources)
+from logme.logme import source_trigger
 
 app = typer.Typer()
 
@@ -60,29 +61,13 @@ def get_todoer() -> logme.Todoer:
         raise typer.Exit(1)
 
 
-def get_ProcessATimeLoggerApi(src: str) -> logme.ProcessATimeLoggerApi:
-    if config.CONFIG_FILE_PATH.exists():
-        db_path = database.get_database_path(config.CONFIG_FILE_PATH)
-    else:
-        typer.secho(
-            'Config file not found. Please, run "logme init"',
-            fg=typer.colors.RED,
-        )
-        raise typer.Exit(1)
-    if db_path.exists():
-        return logme.ProcessATimeLoggerApi(src, db_path)
-    else:
-        typer.secho(
-            'Database not found. Please, run "logme init"',
-            fg=typer.colors.RED,
-        )
-        raise typer.Exit(1)
-
-
 @app.command(name="source")
 def process_src(src: str =
-                typer.Argument(sources,
-                               help="Choose ono of the implemented sources.")) \
+                typer.Argument(
+                    default='',
+                    help=f"Choose ono of the implemented sources:\n"
+                         f"{sources}"
+                               )) \
         -> int:
     """Process a source."""
 
@@ -95,7 +80,9 @@ def process_src(src: str =
 
     if not src in sources:
         typer.secho(
-            f'There is not a source {src}.',
+            f'There is not a source "{src}".\n'
+            f"Choose ono of the implemented sources:\n"
+            f"{sources}",
             fg=typer.colors.RED,
         )
         raise typer.Exit(1)
@@ -105,19 +92,9 @@ def process_src(src: str =
         print(f"Creates directory: {dst}")
         makedirs(dst)
     print(f"dst: {dst}")
-    conf = logme.get_source_conf(src)
-    print(f"src config: {src}\n{conf}")
-    if conf['connection'] == 'GoogleDrive':
-        downloader = logme.GoogleDriveDownloader(src, dst)
-        return downloader.download(src, dst)
-    if conf['connection'] == 'api':
-        downloader = logme.ATimeLoggerApi(src, dst)
-        # Download json with aTimeLogger api
-        downloader.download(src, dst)
-        # Process downloaded with pandas
-        processor = get_ProcessATimeLoggerApi(dst)
-        result = processor.process(dst)
+    source_trigger(src)
     return result
+
 
 @app.command()
 def add(
