@@ -1,10 +1,18 @@
-import typer
-from logme import (ERRORS, __app_name__, __version__,
-                   config, database, logme, sources)
-from pathlib import Path
-import pandas as pd
+from dotenv import load_dotenv
+from json import load, dump
+from logme import (config, database, sources, SUCCESS,
+                   logme)
 
 from logme.database import DatabaseHandler
+from os import makedirs
+from requests.auth import HTTPBasicAuth
+from urllib.parse import urlparse
+import requests
+import typer
+from os import environ
+from pathlib import Path
+import pandas as pd
+import time
 
 
 class ProcessATimeLoggerApi:
@@ -14,7 +22,7 @@ class ProcessATimeLoggerApi:
         self.src = src
         self._db_handler = DatabaseHandler(db_path)
 
-    def process(self, src: str = None) -> int:
+    def process(self, src: Path = None) -> int:
         # Check files activities.json & intervals.json exists
         input_files = {
             'activities_file': Path(src) / 'aTimeLogger/activities.json',
@@ -55,10 +63,10 @@ class ProcessATimeLoggerApi:
             left_on="parent",
             right_on="guid"
         )[["name_y", "name_x","comment","duration_sec","from","to"]]
-        m2.rename(columns={'name_y':'in_group',
-                           'name_x':'activity',
-                           'from':'ts_from',
-                           'to':'ts_to'
+        m2.rename(columns={'name_y': 'in_group',
+                           'name_x': 'activity',
+                           'from': 'ts_from',
+                           'to': 'ts_to'
                            }, inplace=True)
         # Add a hash as index
         m2['hash'] = pd.Series((hash(tuple(row)) for
@@ -98,15 +106,15 @@ class ATimeLoggerApi:
         self.src = src
         self.dst = dst
 
-    def download(self, src: str = None, dst: Path = None) -> int:
+    def download(self) -> int:
         error = 0
-        dst_path = Path(dst) / src
+        dst_path = Path(self.dst) / self.src
         if not dst_path.exists():
             makedirs(dst_path)
         load_dotenv('.env')
         user = environ.get('aTimeLogger_user')
         password = environ.get('aTimeLogger_pass')
-        conf = get_source_conf(src)
+        conf = logme.get_source_conf(self.src)
         from_secs = int(time.time()) - int(conf['days_to_retrieve_api'] * 24 * 60 * 60)
         # Another not useful end point
         # "https://app.atimelogger.com/api/v2/types",
@@ -127,7 +135,7 @@ class ATimeLoggerApi:
         return error
 
 
-def get_ProcessATimeLoggerApi(src: str) -> ProcessATimeLoggerApi:
+def get_ProcessATimeLoggerApi(src: Path) -> ProcessATimeLoggerApi:
     if config.CONFIG_FILE_PATH.exists():
         db_path = database.get_database_path(config.CONFIG_FILE_PATH)
     else:

@@ -11,8 +11,9 @@ from logme import (
     __version__,
     cli,
     logme,
+    ATimeLogger,
+    Duolingo,
 )
-
 
 runner = CliRunner()
 
@@ -24,8 +25,8 @@ def test_version():
 
 
 def test_config():
-        conf = logme.get_source_conf('aTimeLogger')
-        assert type(conf['days_to_retrieve_api']) == float
+    conf = logme.get_source_conf('aTimeLogger')
+    assert type(conf['days_to_retrieve_api']) == float
 
 
 @pytest.fixture

@@ -67,8 +67,7 @@ def process_src(src: str =
                     default='',
                     help=f"Choose ono of the implemented sources:\n"
                          f"{sources}"
-                               )) \
-        -> int:
+                               )) -> int:
     """Process a source."""
 
     if not config.CONFIG_FILE_PATH.exists():
@@ -93,7 +92,7 @@ def process_src(src: str =
         makedirs(dst)
     print(f"dst: {dst}")
     source_trigger(src)
-    return result
+    return 0
 
 
 @app.command()

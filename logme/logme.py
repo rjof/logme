@@ -5,9 +5,7 @@ import time
 from os import makedirs
 from pathlib import Path
 from typing import Any, Dict, List, NamedTuple
-from urllib.parse import urlparse
-
-from dotenv import load_dotenv
+from logme import config
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
@@ -15,6 +13,7 @@ from googleapiclient.http import MediaIoBaseDownload
 from requests.auth import HTTPBasicAuth
 from logme import DB_READ_ERROR, ID_ERROR, creds_dict, SCOPES, CONFIG_FILE_PATH, FILE_ERROR, SUCCESS
 from logme.ATimeLogger import get_ProcessATimeLoggerApi, ATimeLoggerApi
+from logme.Duolingo import DuolingoApi
 from logme.database import DatabaseHandler
 import requests
 from os import environ
@@ -63,14 +62,16 @@ def source_trigger(src: str = None) -> None:
         if conf['connection'] == 'api':
             downloader = ATimeLoggerApi(src, dst)
             # Download json with aTimeLogger api
-            downloader.download(src, dst)
+            downloader.download()
             # Process downloaded with pandas
             processor = get_ProcessATimeLoggerApi(dst)
             result = processor.process(dst)
-            exit(1)
     elif src == 'duolingo':
-        print('get duolingo data')
-        exit(1)
+        downloader = DuolingoApi(src, dst)
+        skills = downloader.download()
+        downloader.process(skills)
+    else:
+        print(f"{src} not yet implemented")
 
 
 class Processor(NamedTuple):

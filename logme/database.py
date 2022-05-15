@@ -53,7 +53,7 @@ class DBResponse(NamedTuple):
 
 
 class SQLiteResponse(NamedTuple):
-    logme_df: pd.DataFrame
+    logme_merged: pd.DataFrame
     error: int
 
 class DatabaseHandler:
