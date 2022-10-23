@@ -1,12 +1,20 @@
 # Souces to add
-- kindle
+- koreader Clipping (kindle)
 - pomodoro
 - podcast adict
 - Multi timer
 - Tap log
 - loop habits
-# Sources storage
- - Dropbox 
+
+# Sources storage to add
+ - Dropbox
+
+# Stats
+ - KoreaderStatistics:
+   - Time by book
+   - Mean time by page (by book)
+   - 120 seconds in page (comment) might indicate I fell asleep.
+
 # Rules generation
  For example:
  ```
@@ -15,7 +23,8 @@
    ```
 # Communication channel
 Link the api to a slack channel
+
 # Visual interface
 Mainly for statistics.
 
-Use shiny (Rlang).
+Use shiny (Rlang) or Express (? Learning opportunity vs learning curve)

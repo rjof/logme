@@ -1,7 +1,8 @@
 """This module provides the logme model-controller."""
 import configparser
 import io
-import time
+import os.path
+import shutil
 from os import makedirs
 from pathlib import Path
 from typing import Any, Dict, List, NamedTuple
@@ -10,22 +11,35 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaIoBaseDownload
-from requests.auth import HTTPBasicAuth
 from logme import DB_READ_ERROR, ID_ERROR, creds_dict, SCOPES, CONFIG_FILE_PATH, FILE_ERROR, SUCCESS
 from logme.ATimeLogger import get_ProcessATimeLoggerApi, ATimeLoggerApi
 from logme.Duolingo import DuolingoApi
 from logme.database import DatabaseHandler
-import requests
-from os import environ
-from json import load, dump
+from logme.Koreader import KoreaderStatistics
 import pandas as pd
-from sqlalchemy import (create_engine, MetaData, Table,
-                        Column, Integer, String, sql)
 
 
 class CurrentLogme(NamedTuple):
     todo: Dict[str, Any]
     error: int
+
+
+def move_file_in_local_system(src_file: Path, dst_path: Path):
+    print(f"move file: {src_file}")
+    dst_file = dst_path / os.path.basename(src_file)
+    # source file exists?
+    if not src_file.exists():
+        return print(f"{src_file} not present")
+    # destination file exists?
+    if dst_file.is_file():
+        # as the dst file exists, get modification time of file
+        if os.path.getmtime(src_file) > os.path.getmtime(dst_file):
+            shutil.move(src_file,dst_file)
+        else:
+            msg = f"Source file {src_file} is older than {dst_file}"
+            raise Exception(msg)
+    else:
+        shutil.move(src_file,dst_file)
 
 
 def get_local_storage_path(config_file: Path) -> Path:
@@ -52,7 +66,7 @@ def get_source_conf(src: str = None) -> dict:
 def source_trigger(src: str = None) -> None:
     print(f"src: {src}")
     conf = get_source_conf(src)
-    print(f"src config: {src}\n{conf}")
+    #print(f"src config: {src}\n{conf}")
     dst = get_local_storage_path(config.CONFIG_FILE_PATH)
     if src == 'aTimeLogger':
         print('get aTimeLogger data')
@@ -70,6 +84,10 @@ def source_trigger(src: str = None) -> None:
         downloader = DuolingoApi(src, dst)
         skills = downloader.download()
         downloader.process(skills)
+    elif src == 'koreaderStatistics':
+        print('Process koreader statistic file')
+        processor = KoreaderStatistics(src, dst)
+        processor.process()
     else:
         print(f"{src} not yet implemented")
 

@@ -8,7 +8,8 @@ from typing import Any, Dict, List, NamedTuple
 import pandas as pd
 from sqlalchemy import (create_engine, MetaData, Table,
                         Column, Integer, String, sql)
-from logme import DB_READ_ERROR, DB_WRITE_ERROR, JSON_ERROR, SUCCESS
+from logme import (DB_READ_ERROR, DB_WRITE_ERROR, JSON_ERROR,
+                   SUCCESS)
 from sqlalchemy import (create_engine, MetaData, Table,
                         Column, Integer, String, sql)
 
@@ -89,8 +90,12 @@ class DatabaseHandler:
                     sql_query = sql.text('select * from logme')
                     list_logme = sqlite_connection.execute(
                         sql_query).fetchall()
-                    return SQLiteResponse(pd.DataFrame(
-                        list_logme),
+                    return SQLiteResponse(
+                        pd.DataFrame(
+                            list_logme,
+                        columns=['hash', 'in_group','activity',
+                                 'comment','duration_sec',
+                                 'ts_from','ts_to']),
                         SUCCESS)
                 except OSError:  # Catch file IO problems
                     return DBResponse([], DB_READ_ERROR)
@@ -98,6 +103,9 @@ class DatabaseHandler:
             return SQLiteResponse(pd.DataFrame(), DB_READ_ERROR)
 
     def write_logme(self, df: pd.DataFrame) -> int:
+        # @todo Create a backup before writing
+        # drop table logmeBK if exists;
+        # create table logmeBK as select * from logme;
         try:
             sqlite_db = f"sqlite:///{self._db_path}"
             engine = create_engine(sqlite_db, echo=True)

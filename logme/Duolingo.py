@@ -114,7 +114,6 @@ class DuolingoApi:
         if err != SUCCESS:
             msg = f"The database was not found or readable."
             raise Exception(msg)
-        logme_df.columns = df.columns
         merged = df.merge(logme_df.drop_duplicates(),
                           on=['in_group', 'activity', 'comment',
                               'duration_sec', 'ts_from', 'ts_to'],
