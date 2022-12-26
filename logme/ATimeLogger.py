@@ -57,6 +57,7 @@ class ProcessATimeLoggerApi:
             left_on="type.guid")[["name","comment","duration_sec",
                                   "from","to","group","parent"]]
         print(f"m1: {m1.shape}")
+
         m2 = pd.merge(
             m1,
             activities,
@@ -69,9 +70,9 @@ class ProcessATimeLoggerApi:
                            'to': 'ts_to'
                            }, inplace=True)
         # Add a hash as index
-        m2['hash'] = pd.Series((hash(tuple(row)) for
-                                _,
-                                row in m2.iterrows()))
+        m2['hash'] = pd.util.hash_pandas_object(m2)
+        # Change type from unit64 to object
+        m2['hash'] = m2['hash'].astype(str)
         m2 = m2[['hash','in_group', 'activity', 'comment',
                  'duration_sec', 'ts_from', 'ts_to']]
         m2 = m2.sort_values(by="ts_from")
@@ -120,7 +121,7 @@ class ATimeLoggerApi:
         # "https://app.atimelogger.com/api/v2/types",
         urls = [
             "https://app.atimelogger.com/api/v2/activities?limit=200",
-            f"https://app.atimelogger.com/api/v2/intervals?limit=100&from={from_secs}"
+            f"https://app.atimelogger.com/api/v2/intervals?limit=1000&from={from_secs}"
         ]
         for url in urls:
             resp = requests.get(url, auth=HTTPBasicAuth(user, password))
