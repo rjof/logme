@@ -1,5 +1,12 @@
 """Top-level package for logme."""
 
+import sys
+import collections 
+if sys.version_info.major == 3 and sys.version_info.minor >= 10:
+    from collections.abc import MutableMapping
+    setattr(collections, "MutableMapping", collections.abc.MutableMapping)
+else:
+    from collections import MutableMapping
 from dotenv import load_dotenv
 from os import path, environ
 import configparser
