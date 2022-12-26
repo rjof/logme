@@ -78,9 +78,10 @@ class KoreaderStatistics:
             msg = f"The database was not found or readable."
             raise Exception(msg)
         # Change type int64 to object
-        statistics_df['comment'] = statistics_df['comment'].astype(object)
-        statistics_df['hash'] = pd.Series(
-            (hash(tuple(row)) for _,row in statistics_df.iterrows()))
+        statistics_df['comment'] = statistics_df['comment'].astype(str)
+        statistics_df['hash'] = pd.util.hash_pandas_object(statistics_df)
+        # Change type from unit64 to object
+        statistics_df['hash'] = statistics_df['hash'].astype(str)
         statistics_df['in_group'] = str("Leo")
         statistics_df = \
             statistics_df[['hash','in_group','activity',
@@ -92,11 +93,13 @@ class KoreaderStatistics:
 
         merged = statistics_df.merge(
             logme_df.drop_duplicates(),
-            on=['in_group', 'activity', 'comment',
+            on=['in_group',
+                'activity', 'comment',
                 'duration_sec', 'ts_from', 'ts_to'],
             how='left', indicator=True)
+        # print(merged.head(10))
+        # print(merged.info())
         merged.rename(columns={'hash_x': 'hash'}, inplace=True)
-        print(merged.head(5))
 
         already_saved = merged[merged['_merge']=='both']
         to_save = merged[merged['_merge']!='both']
@@ -106,7 +109,8 @@ class KoreaderStatistics:
         print(f"already_saved:  {already_saved.shape}")
         print(f"To be inserted: {to_save.shape}")
 
-        return pd.DataFrame() #self._db_handler.write_logme(to_save)
+        return self._db_handler.write_logme(to_save)
+
 
 
 
