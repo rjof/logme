@@ -102,10 +102,11 @@ class DuolingoApi:
         # df['ts_from'] = pd.to_datetime(df['ts_from']).astype(int)/10**9
         # df['ts_to'] = pd.to_datetime(df['ts_to']).astype(int)/10**9
         df = df[['in_group','activity','comment','duration_sec','ts_from','ts_to']]
-        df['hash'] = pd.Series((hash(tuple(row)) for
-                                _,
-                                row in df.iterrows()))
-        df = df[['hash','in_group','activity','comment','duration_sec','ts_from','ts_to']]
+        df['hash'] = pd.util.hash_pandas_object(df)
+        # Change type from unit64 to object
+        df['hash'] = df['hash'].astype(str)
+        df = df[['hash','in_group','activity','comment',
+                 'duration_sec','ts_from','ts_to']]
 
         # Load previous learned_ts
         logme_df, err = self._db_handler.load_logme()
@@ -114,10 +115,11 @@ class DuolingoApi:
         if err != SUCCESS:
             msg = f"The database was not found or readable."
             raise Exception(msg)
-        merged = df.merge(logme_df.drop_duplicates(),
-                          on=['in_group', 'activity', 'comment',
-                              'duration_sec', 'ts_from', 'ts_to'],
-                          how='left', indicator=True)
+        merged = df.merge(
+            logme_df.drop_duplicates(),
+            on=['in_group', 'activity', 'comment',
+                'duration_sec', 'ts_from', 'ts_to'],
+            how='left', indicator=True)
         merged.rename(columns={'hash_x': 'hash'}, inplace=True)
 
         already_saved = merged[merged['_merge']=='both']
