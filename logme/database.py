@@ -33,7 +33,7 @@ def init_database(db_path: Path) -> int:
         # sqlite_connection = engine.connect()
         meta = MetaData()
         logme = Table('logme', meta,
-                      Column('hash',         Integer, primary_key = True),
+                      Column('hash',         String, primary_key = True),
                       Column('in_group',     String),
                       Column('activity',     String),
                       Column('comment',      String),
