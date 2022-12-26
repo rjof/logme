@@ -1,5 +1,8 @@
 # Souces to add
 - koreader Clipping (kindle)
+  Two ideas:
+  - Create Anki cards from every note
+  - In case of a single word highlighted it is probable a word to learn. The process should be to look for a definition in the original language and add a Anki card with the definition
 - pomodoro
 - podcast adict
 - Multi timer

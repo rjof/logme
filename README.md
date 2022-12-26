@@ -47,7 +47,7 @@ The collected data is saved in a sqlite database in the table **logme** with the
 
 *A hash of the row, not in use for the time being*
 
-Column('hash',         Integer, primary_key = True),
+Column('hash',         String, primary_key = True),
 
 *The activity to which a group belongs, i.e.* **this book**, *belongs to the group* **reading**
 
