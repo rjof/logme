@@ -89,7 +89,7 @@ def source_trigger(src: str = None) -> None:
         processor = KoreaderStatistics(src, dst)
         processor.process()
     else:
-        print(f"{src} not yet implemented")
+        print(f"{src} not yet implemented. Check TODO.md file for check the planning.")
 
 
 class Processor(NamedTuple):
