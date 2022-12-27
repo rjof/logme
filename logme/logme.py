@@ -15,7 +15,8 @@ from logme import DB_READ_ERROR, ID_ERROR, creds_dict, SCOPES, CONFIG_FILE_PATH,
 from logme.ATimeLogger import get_ProcessATimeLoggerApi, ATimeLoggerApi
 from logme.Duolingo import DuolingoApi
 from logme.database import DatabaseHandler
-from logme.Koreader import KoreaderStatistics
+from logme.KoreaderStatistics import KoreaderStatistics
+from logme.KoreaderClipping import KoreaderClipping
 import pandas as pd
 
 
@@ -88,6 +89,10 @@ def source_trigger(src: str = None) -> None:
         print('Process koreader statistic file')
         processor = KoreaderStatistics(src, dst)
         processor.process()
+    elif src == 'koreaderClipping':
+        print('Process highlighted texts in Koreader')
+        processor = KoreaderClipping(src, dst)
+        processor.pre_process()
     else:
         print(f"{src} not yet implemented. Check TODO.md file for check the planning.")
 
