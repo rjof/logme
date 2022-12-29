@@ -62,17 +62,17 @@ class KoreaderClipping:
         patternNote = "Página [0-9]* "
         for filePath in os.listdir(dst_path):
             file = open(Path(self.dst) / self.src / filePath)
-            bookTitle = None
+            bookTitle = ""
             inNote = 0
             endNote = 0
             i = 0
             line = ""
             while endNote == 0:
                 if line == "-=-=-=-=-=-\n":
-                    bookTitle = None
-                    # line = file.readline()
-                if not bookTitle:
-                    bookTitle == line
+                    bookTitle = ""
+                    line = file.readline()
+                if bookTitle == "":
+                    bookTitle = line
                     # line = file.readline()
                 res = re.findall(patternBeginNote, line)
                 if res:
