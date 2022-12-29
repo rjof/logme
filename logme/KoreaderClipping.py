@@ -9,7 +9,7 @@ from os import makedirs
 import typer
 from pathlib import Path
 import pandas as pd
-
+import re
 
 class KoreaderClipping:
     """
@@ -58,14 +58,32 @@ class KoreaderClipping:
         self.move_from_landing()
         
         dst_path = Path(self.dst) / self.src
+        patternBeginNote = "^[\\t\\s]+-- Página: [0-9]*, añadida a (.*)\n"
+        patternNote = "Página [0-9]* "
         for filePath in os.listdir(dst_path):
             file = open(Path(self.dst) / self.src / filePath)
+            bookTitle = None
+            inNote = 0
             endNote = 0
-        while endNote == 0:
-            line = file.readline()
-            if line == "-=-=-=-=-=-\n":
-                endNote = 1
-                print("endNote")
-            else:
-                print(line)
+            i = 0
+            line = ""
+            while endNote == 0:
+                if line == "-=-=-=-=-=-\n":
+                    bookTitle = None
+                    # line = file.readline()
+                if not bookTitle:
+                    bookTitle == line
+                    # line = file.readline()
+                res = re.findall(patternBeginNote, line)
+                if res:
+                    print(res)
+                    inNote = 1
+                    # line = file.readline()
+                print(f"${i}: ${line}")
+                print(f"  bookTitle: ${bookTitle}")
+                print(f"  res: ${res}")
+                line = file.readline()
+                i = i + 1
+                if i == 10:
+                    endNote = 1
         file.close()
