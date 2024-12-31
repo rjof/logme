@@ -1,0 +1,12 @@
+library(RSQLite)
+library(tidyr)
+library(dplyr)
+rm(list=ls())
+conn <- dbConnect(RSQLite::SQLite(), "/home/rjof/.rjof_logme.db")
+cajetillas=dbGetQuery(conn,"select ts_from from logme where activity = 'Cajetilla'")
+cajetillas['fecha']=as.POSIXct(as.matrix(cajetillas$ts_from), origin="1970-01-01")
+cajetillas['segs'] = c(0,diff(as.matrix(cajetillas$ts_from)))
+cajetillas['hrs'] = c(0,diff(as.matrix(cajetillas$ts_from)))/3600
+barplot(cajetillas$hrs)
+nrow(cajetillas)
+cajetillas %>% select(hrs) %>% filter(hrs > 0) %>% summary()

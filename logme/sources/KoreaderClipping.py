@@ -59,31 +59,46 @@ class KoreaderClipping:
         
         dst_path = Path(self.dst) / self.src
         patternBeginNote = "^[\\t\\s]+-- Página: [0-9]*, añadida a (.*)\n"
+        patternEndNote = "-=-=-=-=-=-"
         patternNote = "Página [0-9]* "
+        data = [["a","b","c"]]
         for filePath in os.listdir(dst_path):
             file = open(Path(self.dst) / self.src / filePath)
             bookTitle = ""
             inNote = 0
             endNote = 0
+            noteDate = ""
+            note = ""
             i = 0
-            line = ""
-            while endNote == 0:
-                if line == "-=-=-=-=-=-\n":
-                    bookTitle = ""
+            line = file.readline()
+            endCycle = 0
+            while endCycle == 0:
+                endNote = re.findall(patternEndNote, line)
+                if endNote:
                     line = file.readline()
-                if bookTitle == "":
-                    bookTitle = line
-                    # line = file.readline()
-                res = re.findall(patternBeginNote, line)
-                if res:
-                    print(res)
-                    inNote = 1
-                    # line = file.readline()
-                print(f"${i}: ${line}")
-                print(f"  bookTitle: ${bookTitle}")
-                print(f"  res: ${res}")
-                line = file.readline()
+                beginNote = re.findall(patternBeginNote, line)
+                endNote = re.findall(patternEndNote, line)
+
+                if beginNote:
+                    noteDate = beginNote[0]
+                    note = file.readline()
+                    data.append([bookTitle, note, noteDate])
+                    line = file.readline()
+                beginNote = re.findall(patternBeginNote, line)
+                endNote = re.findall(patternEndNote, line)
+
+                if not beginNote and not endNote:
+                    print(f"bookTile should be: {line}")
+                    bookTitle = line.replace(u"\u3000", "")
+                    line = file.readline()
+                # print(f"{i}: {line}")
+                # print(f"  bookTitle: {bookTitle}")
+                # print(f"  note:      {note}")
+                # print(f"  noteDate:  {noteDate}")
+                # print(f"  line:      {line}")
                 i = i + 1
-                if i == 10:
-                    endNote = 1
+                if i == 30:
+                    endCycle = 1
         file.close()
+        print("======= data:")
+        print(data)

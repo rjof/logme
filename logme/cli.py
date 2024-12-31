@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import List, Optional
 import typer
 from logme import (ERRORS, __app_name__, __version__,
-                   config, database, logme, sources)
+                   config, database, logme, sourcesList)
 from logme.logme import source_trigger
 
 app = typer.Typer()
@@ -66,7 +66,7 @@ def process_src(src: str =
                 typer.Argument(
                     default='',
                     help=f"Choose ono of the implemented sources:\n"
-                         f"{sources}"
+                         f"{sourcesList}"
                                )) -> int:
     """Process a source."""
 
@@ -77,11 +77,11 @@ def process_src(src: str =
         )
         raise typer.Exit(1)
 
-    if not src in sources:
+    if not src in sourcesList:
         typer.secho(
             f'There is not a source "{src}".\n'
             f"Choose ono of the implemented sources:\n"
-            f"{sources}",
+            f"{sourcesList}",
             fg=typer.colors.RED,
         )
         raise typer.Exit(1)

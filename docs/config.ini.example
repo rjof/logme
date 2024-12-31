@@ -1,0 +1,75 @@
+# This file is saved in /home/<user_name>/.config/logme/config.ini
+
+[General]
+database = /home/rjof/.rjof_logme.db
+
+[Sources]
+src = aTimeLogger,duolingo,koreaderStatistics,koreaderClipping,pomodoro,podcast_adict,multi_timer,tap_log,loop_habits
+
+[LocalPaths]
+storage = /home/rjof/logme_data
+
+[aTimeLogger]
+connection = api
+format = json
+sep = ,
+date_format = yyyy-mm-dd hh:mm
+fields = Group, Activity type, Duration, From, To, Comment
+field_type = str, date (hh:mm), date, date, str
+days_to_retrieve_api = 365
+
+[duolingo]
+connection = api
+format = json
+languajes = fr, de
+
+[koreaderStatistics]
+connection = file_system
+src_file = /home/automation/kindle/kindle_rayen/koreader_rayen/statistics/statistics.sqlite3
+format = sqlite
+
+[koreaderClipping]
+connection = file_system
+src_file = /home/automation/kindle/kindle_rayen/koreader_rayen/clipboard/KOReaderClipping.txt
+format = text
+
+[pomodoro]
+connection = GoogleDrive
+format = csv
+sep = ,
+date_format = yyyy-mm-dd hh:mm
+fields = Group, Activity type, Duration, From, To, Comment
+field_type = str, date (hh:mm), date, date, str
+
+[podcast_adict]
+connection = GoogleDrive
+format = csv
+sep = ,
+date_format = yyyy-mm-dd hh:mm
+fields = Group, Activity type, Duration, From, To, Comment
+field_type = str, date (hh:mm), date, date, str
+
+[multi_timer]
+connection = GoogleDrive
+format = csv
+sep = ,
+date_format = yyyy-mm-dd hh:mm
+fields = Group, Activity type, Duration, From, To, Comment
+field_type = str, date (hh:mm), date, date, str
+
+[tap_log]
+connection = GoogleDrive
+format = csv
+sep = ,
+date_format = yyyy-mm-dd hh:mm
+fields = Group, Activity type, Duration, From, To, Comment
+field_type = str, date (hh:mm), date, date, str
+
+[loop_habits]
+connection = GoogleDrive
+format = csv
+sep = ,
+date_format = yyyy-mm-dd hh:mm
+fields = Group, Activity type, Duration, From, To, Comment
+field_type = str, date (hh:mm), date, date, str
+
