@@ -31,3 +31,6 @@ Link the api to a slack channel
 Mainly for statistics.
 
 Use shiny (Rlang) or Express (? Learning opportunity vs learning curve)
+
+# Instagram
+Add */media/rjof/toshiba/rjof/instagram/instaloader/instagram_organizer/* to process instagram videos

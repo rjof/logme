@@ -19,11 +19,11 @@ httplib2==0.20.4
 idna==3.4
 iniconfig==1.1.1
 jsonschema==4.1.2
-logme==0.1.0
+#logme==0.1.0
 numpy==1.24.0
 oauthlib==3.2.0
 packaging==22.0
-pandas==1.1.5
+pandas==2.2.3
 pip==23.3.2
 pipenv==2022.12.19
 platformdirs==2.6.0
@@ -54,4 +54,5 @@ urllib3==1.26.13
 virtualenv==20.17.1
 virtualenv-clone==0.5.7
 wheel==0.38.4
-
+selenium==4.27.1
+instaloader

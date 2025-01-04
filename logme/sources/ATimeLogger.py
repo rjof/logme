@@ -13,7 +13,7 @@ from os import environ
 from pathlib import Path
 import pandas as pd
 import time
-
+import logging
 
 class ProcessATimeLoggerApi:
     """Class to process aTimeLogger json files"""
@@ -21,6 +21,7 @@ class ProcessATimeLoggerApi:
     def __init__(self, src: Path, db_path: Path) -> None:
         self.src = src
         self._db_handler = DatabaseHandler(db_path)
+        self.logger = logging.getLogger(self.__class__.__name__)
 
     def process(self, src: Path = None) -> int:
         # Check files activities.json & intervals.json exists
@@ -28,9 +29,10 @@ class ProcessATimeLoggerApi:
             'activities_file': Path(src) / 'aTimeLogger/activities.json',
             'intervals_file': Path(src) / 'aTimeLogger/intervals.json'
         }
+        
         # Load them
         for key in input_files:
-            print(f"variable: {key} is {input_files[key]}")
+            self.logger.info(f"variable: {key} is {input_files[key]}")
             try:
                 with open(input_files[key], 'r') as f:
                     globals()[key] = load(f)
@@ -41,14 +43,14 @@ class ProcessATimeLoggerApi:
         activities = pd.json_normalize(activities_file['types'])
         activities = activities[['guid', 'name', 'group',
                                  'parent']]
-        print(f"activities.shape: {activities.shape}")
+        self.logger.info(f"activities.shape: {activities.shape}")
 
         intervals = pd.json_normalize(intervals_file['intervals'])
         intervals = intervals[["guid", "from", "to",
                                "comment", "type.guid"]]
         intervals["duration_sec"] = \
             intervals["to"] - intervals["from"]
-        print(f"intervals.shape: {intervals.shape}")
+        self.logger.info(f"intervals.shape: {intervals.shape}")
 
         m1 = pd.merge(
             intervals,
@@ -56,7 +58,7 @@ class ProcessATimeLoggerApi:
             right_on="guid",
             left_on="type.guid")[["name","comment","duration_sec",
                                   "from","to","group","parent"]]
-        print(f"m1: {m1.shape}")
+        self.logger.info(f"m1: {m1.shape}")
 
         m2 = pd.merge(
             m1,
@@ -76,10 +78,10 @@ class ProcessATimeLoggerApi:
         m2 = m2[['hash','in_group', 'activity', 'comment',
                  'duration_sec', 'ts_from', 'ts_to']]
         m2 = m2.sort_values(by="ts_from")
-        print(f"m2: {m2.shape}")
+        self.logger.info(f"m2: {m2.shape}")
 
         logme_df, err = self._db_handler.load_logme()
-        print(f"logme_df: {logme_df.shape}")
+        self.logger.info(f"logme_df: {logme_df.shape}")
 
         if err != SUCCESS:
             msg = f"The database was not found or readable."
@@ -93,10 +95,10 @@ class ProcessATimeLoggerApi:
         already_saved = merged[merged['_merge']=='both']
         to_save = merged[merged['_merge']!='both']
         to_save = to_save[m2.columns]
-        print(f"merged: {merged.shape}")
-        print(f"already_saved: {already_saved.shape}")
-        print(f"to_save: {to_save.shape}")
-        print(f"To be inserted: {to_save.shape}")
+        self.logger.info(f"merged: {merged.shape}")
+        self.logger.info(f"already_saved: {already_saved.shape}")
+        self.logger.info(f"to_save: {to_save.shape}")
+        self.logger.info(f"To be inserted: {to_save.shape}")
         return self._db_handler.write_logme(to_save)
 
 
@@ -106,6 +108,7 @@ class ATimeLoggerApi:
     def __init__(self, src: str, dst: Path) -> None:
         self.src = src
         self.dst = dst
+        self.logger = logging.getLogger(self.__class__.__name__)
 
     def download(self) -> int:
         error = 0
@@ -128,9 +131,9 @@ class ATimeLoggerApi:
             if not resp.status_code == 200:
                 error = 1
                 raise Exception("The aTimeLogger api seems to be down... or your request?")
-            print(f"{url}: {resp.status_code}")
+            self.logger.info(f"{url}: {resp.status_code}")
             dst_file = Path(dst_path) / f"{urlparse(url).path.split('/')[-1]}.json"
-            print(f"dst file: {dst_file}")
+            self.logger.info(f"dst file: {dst_file}")
             with open(dst_file, "w") as f:
                 dump(resp.json(), f)
         return error

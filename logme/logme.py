@@ -1,8 +1,10 @@
 """This module provides the logme model-controller."""
-from .sources import KoreaderStatistics
+
 from .sources import KoreaderClipping
+from .sources import KoreaderStatistics
 from .sources import ATimeLogger
 from .sources import Duolingo
+from .sources import Instagram
 import pandas as pd
 from logme.database import DatabaseHandler
 from logme import DB_READ_ERROR, ID_ERROR, creds_dict, SCOPES, CONFIG_FILE_PATH, FILE_ERROR, SUCCESS
@@ -21,15 +23,9 @@ import sys
 from logme import config
 fpath = os.path.join(os.path.dirname(__file__), 'sources')
 sys.path.append(fpath)
+import logging
 
-# from logme.ATimeLogger import get_ProcessATimeLoggerApi, ATimeLoggerApi
-# from sources.ATimeLogger import get_ProcessATimeLoggerApi, ATimeLoggerApi
-# from logme.Duolingo import DuolingoApi
-# from sources.Duolingo import DuolingoApi
-# from logme.KoreaderStatistics import KoreaderStatistics
-# from sources.KoreaderStatistics import KoreaderStatistics
-# from logme.KoreaderClipping import KoreaderClipping
-# from sources.KoreaderClipping import KoreaderClipping
+logger = logging.getLogger(__name__)
 
 
 class CurrentLogme(NamedTuple):
@@ -38,11 +34,11 @@ class CurrentLogme(NamedTuple):
 
 
 def move_file_in_local_system(src_file: Path, dst_path: Path):
-    print(f"move file: {src_file}")
+    logger.info(f"move file: {src_file}")
     dst_file = dst_path / os.path.basename(src_file)
     # source file exists?
     if not src_file.exists():
-        return print(f"{src_file} not present")
+        return logger.info(f"{src_file} not present")
     # destination file exists?
     if dst_file.is_file():
         # as the dst file exists, get modification time of file
@@ -77,12 +73,12 @@ def get_source_conf(src: str = None) -> dict:
 
 
 def source_trigger(src: str = None) -> None:
-    print(f"src: {src}")
+    logger.info(f"src: {src}")
     conf = get_source_conf(src)
-    # print(f"src config: {src}\n{conf}")
+    # logger.info(f"src config: {src}\n{conf}")
     dst = get_local_storage_path(config.CONFIG_FILE_PATH)
     if src == 'aTimeLogger':
-        print('get aTimeLogger data')
+        logger.info('get aTimeLogger data')
         if conf['connection'] == 'GoogleDrive':
             downloader = GoogleDriveDownloader(src, dst)
             return downloader.download(src, dst)
@@ -94,19 +90,23 @@ def source_trigger(src: str = None) -> None:
             processor = ATimeLogger.get_ProcessATimeLoggerApi(dst)
             result = processor.process(dst)
     elif src == 'duolingo':
+        logger.info(f'Downloading {src}')
         languages_processor = Duolingo.DuolingoApi(src, dst)
-        exit(0)
-        downloader.process(skills)
+        # downloader.process(skills)
     elif src == 'koreaderStatistics':
-        print('Process koreader statistic file')
+        logger.info('Process koreader statistic file')
         processor = KoreaderStatistics(src, dst)
         processor.process()
     elif src == 'koreaderClipping':
-        print('Process highlighted texts in Koreader')
+        logger.info('Process highlighted texts in Koreader')
         processor = KoreaderClipping(src, dst)
         processor.pre_process()
+    elif src == 'instagram':
+        logger.info('Process instagram saved posts')
+        processor = Instagram.InstagramIngest(src, dst)
+        processor.instaloader_download(1)
     else:
-        print(f"{src} not yet implemented. Check TODO.md file for check the planning.")
+        logger.info(f"{src} not yet implemented. Check TODO.md file for check the planning.")
 
 
 class Processor(NamedTuple):
@@ -141,18 +141,18 @@ class GoogleDriveDownloader:
             items = results.get('files', [])
 
             if not items:
-                print('No files found.')
+                logger.info('No files found.')
                 return 1
-            print('Files:')
+            logger.info('Files:')
             for item in items:
-                print(item)
+                logger.info(item)
                 request = service.files().get(fileId=item['id'])
                 fh = io.BytesIO()
                 downloader = MediaIoBaseDownload(fh, request)
                 done = False
                 while done is False:
                     status, done = downloader.next_chunk()
-                    print("Download %d%%." % int(status.progress() * 100))
+                    logger.info("Download %d%%." % int(status.progress() * 100))
                     dst_file = Path(dst_path) / f"{item['id']}_metadata.txt"
                     with open(dst_file, "wb") as f:
                         f.write(fh.getbuffer())
@@ -163,13 +163,13 @@ class GoogleDriveDownloader:
                     done = False
                     while done is False:
                         status, done = downloader.next_chunk()
-                        print("Download %d%%." % int(status.progress() * 100))
+                        logger.info("Download %d%%." % int(status.progress() * 100))
                     dst_file = Path(dst_path) / f"{item['id']}_file.csv"
                     with open(dst_file, "wb") as f:
                         f.write(fh.getbuffer())
         except HttpError as error:
             # TODO(developer) - Handle errors from drive API.
-            print(f'An error occurred: {error}')
+            logger.error(f'An error occurred: {error}')
         return 1
 
 

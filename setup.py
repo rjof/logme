@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 __project__ = "logme"
 __version__ = "0.1.0"
-__description__ = "Collector and analyser of my activities"
+__description__ = "Collector and analyser of my digital footprint"
 __author__ = "Ricardo Jose Olvera Flores"
 __author_email__ = "olveraricardo72@gmail.com"
 

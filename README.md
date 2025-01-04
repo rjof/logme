@@ -11,6 +11,22 @@ Python package to collect some logs of my personal life.
 aTimeLogger_user = your@email.com
 aTimeLogger_pass = your_password
 ```
+ - Install the logme module ```pip install -e .```
+ - Duolingo package requires a fix:
+> @flyinggoatman
+>
+> I fixed this for my usecase by removing self.jwt = None 
+>
+> at https://github.com/KartikTalwar/Duolingo/blob/master/duolingo.py#L100, 
+>
+> which then allowed me to instantiate like
+>
+> lingo  = duolingo.Duolingo(username='myUsername', jwt='myJWT')
+>
+> You can grab your JWT by logging in on duolingo.com and then running this JavaScript, which will output the token into the console: 
+
+```document.cookie.match(new RegExp('(^| )jwt_token=([^;]+)'))[0].slice(11);```
+
 # Usage
 To create the database
 ```python -m logme init```
@@ -64,6 +80,12 @@ Firefox:
 cd ~/Documents/seleniumhq.github.io/examples/python/tests/rjof
 
 python3 instaloader_session.py -c /home/rjof/snap/firefox/common/.mozilla/firefox/ycxcs1wp.default/cookies.sqlite -f /home/rjof/.config/instaloader/session-errejotaoefe
+```
+
+## Command line
+### Download saved from specific date
+```
+instaloader --dirname-pattern <DIRECTORY_NAME_TO_SAVE> --login errejotaoefe --post-filter="date_utc >= datetime(2024,12,1) and date_utc <= datetime(2024,12,30)" :saved
 ```
 
 # Storage

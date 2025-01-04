@@ -13,10 +13,10 @@ import pandas as pd
 import time
 import duolingo
 from datetime import datetime
-from logme import (config, database, sources,
-                   SUCCESS, duolingo_languages, duolingo_end_points, logme)
+from logme import (config, database, sources,SUCCESS, duolingo_languages, duolingo_end_points, logme, date_time)
 from logme.database import DatabaseHandler
 from logme.utils import str_to_class
+import logging
 
 languages_dict = {'fr': 'Français', 'de': 'Deutsch'}
 
@@ -29,9 +29,10 @@ class DuolingoApi:
     def __init__(self, src: Path, dst: Path) -> None:
         self.src = src
         self.dst = dst
-        now = datetime.now()  # current date and time
-        self.date_time = now.strftime("%Y-%m-%d_%H-%M-%S")
-        print("date and time:", self.date_time)
+        self.logger = logging.getLogger(self.__class__.__name__)
+        # now = datetime.now()  # current date and time
+        # self.date_time = now.strftime("%Y-%m-%d_%H-%M-%S")
+        self.logger.info(f'date and time: {date_time}')
 
         if config.CONFIG_FILE_PATH.exists():
             db_path = database.get_database_path(config.CONFIG_FILE_PATH)
@@ -56,17 +57,17 @@ class DuolingoApi:
         Download the json file from Duolingo
         :return: list of json activities
         """
-        dst_path = Path(self.dst) / self.src / f"{self.date_time}"
+        dst_path = Path(self.dst) / self.src / f"{date_time}"
         if not dst_path.exists():
             makedirs(dst_path)
         load_dotenv('.env')
         user = environ.get('duolingo_user')
-        print(f"user (duolingo): {user}")
-        #password = environ.get('duolingo_pass')
+        self.logger.info(f"user (duolingo): {user}")
+        password = environ.get('duolingo_pass')
         jwt = environ.get('duolingo_jwt')
-        print(f"jwt: {jwt}")
+        self.logger.info(f"jwt: {jwt}")
         # Deprecated because of dulingo changes
-        #lingo = duolingo.Duolingo(user, password)
+        # lingo = duolingo.Duolingo(user, password)
         lingo = duolingo.Duolingo(user, jwt=jwt)
         # Before downloading skills need to be in that language
         # by lingo._switch_language (french fr, deutsch de)
@@ -81,20 +82,26 @@ class DuolingoApi:
         # @todo
 
         for language in duolingo_languages:
-            print(f"language in config: {language}")
+            self.logger.info(f"language in config: {language}")
             lingo._switch_language(language)
             dst_path_language = dst_path / f"{language}"
             if not dst_path_language.exists():
                 makedirs(dst_path_language)
 
-            end_point_functions = ["lingo.get_" +
-                sub for sub in duolingo_end_points]
-            for end_point in end_point_functions:
+            # end_point_functions = ["lingo.get_" +
+            #     sub for sub in duolingo_end_points]
+            # for end_point in end_point_functions:
+            for end_point in duolingo_end_points:
+                self.logger.info(f'Processing {end_point}')
                 dst_file = dst_path_language / f"{end_point}.json"
                 if "leaderboard" in end_point:
-                     data = eval(f"{end_point}")('wee,', time.time())
+                     data = eval(f"lingo.get_{end_point}")('wee,', time.time())
+                elif "user_info" in end_point or "streak_info" in end_point:
+                    func = getattr(lingo, "get_" + end_point)
+                    data = func()
                 else:
-                    data = eval(f"{end_point}")(language)
+                    self.logger.info(f'######### end_point: {end_point}')
+                    data = eval(f"lingo.get_{end_point}")(language)
                 with open(dst_file, "w") as f:
                     dump(data, f)
             # golden = lingo.get_golden_topics(language)
@@ -106,30 +113,29 @@ class DuolingoApi:
             # Very long
             # vocabulary = lingo.get_vocabulary(language_abbr=language)
             # Takes forever... not useful for training
-            # print(lingo.get_audio_url('bonjour'))
+            # logger.info(lingo.get_audio_url('bonjour'))
             # Very long with explanations and html in the middle
-            # print(lingo.get_learned_skills(language))
+            # logger.info(lingo.get_learned_skills(language))
             # Usable in other context like training with a speaker
-            #  print(lingo.get_related_words('aller'))
+            #  logger.info(lingo.get_related_words('aller'))
             #  lingo.get_translations(['de', 'du'], source='de', target='fr')
             # Broken:
             # File "/home/rjof/python_envs/logme_env/lib/python3.10/site-packages/duolingo.py",
             # line 272, in _make_dict
             # data[key] = array[key]
             # KeyError: 'points_rank'
-            # print(lingo.get_language_progress(language))
+            # logger.info(lingo.get_language_progress(language))
             # Broken:
-            # print(lingo.buy_streak_freeze())
+            # logger.info(lingo.buy_streak_freeze())
             # Broken:
-            # print(lingo.buy_item('streak_freeze', language))
+            # logger.info(lingo.buy_item('streak_freeze', language))
             # Broken:
             # File "/home/rjof/python_envs/logme_env/lib/python3.10/site-packages/duolingo.py",
             # line 407, in get_friends
             # for friend in v['points_ranking_data']:
             # KeyError: 'points_ranking_data'
-            # print(lingo.get_leaderboard('week',time.time()))
+            # logger.info(lingo.get_leaderboard('week',time.time()))
 
-        exit(0)
 
         # lingo._switch_language(language)
         # learned_skills = lingo.get_learned_skills(language)
@@ -168,7 +174,7 @@ class DuolingoApi:
         learned_skills_language = []
         for skill in learned_skills:
             try:
-                # print(skill['learned_ts'])
+                # logger.info(skill['learned_ts'])
                 learned_skills_ts.append(
                     # datetime.fromtimestamp(
                     int(skill['learned_ts'])
@@ -177,12 +183,12 @@ class DuolingoApi:
                 learned_skills_short.append(
                     skill['short']
                 )
-                # print(skill['language'])
+                # logger.info(skill['language'])
                 learned_skills_language.append(
                     languages_dict[skill['language']]
                 )
             except KeyError:
-                print("skill without learned_ts")
+                self.logger.info("skill without learned_ts")
 #        learned_skills_ts.insert(0, datetime.fromtimestamp(0))
 #         learned_skills_ts.insert(0,int(0))
         df = pd.DataFrame(list(zip(learned_skills_ts,
@@ -209,7 +215,7 @@ class DuolingoApi:
 
         # Load previous learned_ts
         logme_df, err = self._db_handler.load_logme()
-        print(f"logme_df: {logme_df.shape}")
+        self.logger.info(f"logme_df: {logme_df.shape}")
 
         if err != SUCCESS:
             msg = f"The database was not found or readable."
@@ -224,31 +230,31 @@ class DuolingoApi:
         already_saved = merged[merged['_merge'] == 'both']
         to_save = merged[merged['_merge'] != 'both']
         to_save = to_save[df.columns]
-        print(f"downloaded:     {df.shape}")
-        print(f"merged:         {merged.shape}")
-        print(f"already_saved:  {already_saved.shape}")
-        print(f"To be inserted: {to_save.shape}")
+        self.logger.info(f"downloaded:     {df.shape}")
+        self.logger.info(f"merged:         {merged.shape}")
+        self.logger.info(f"already_saved:  {already_saved.shape}")
+        self.logger.info(f"To be inserted: {to_save.shape}")
 
         # db = merged.loc[merged['comment'].str.contains("Home"),['in_group', 'activity', 'comment','duration_sec','ts_from','ts_to']]
         # # db['ts_from'] = pd.to_datetime(db['ts_from'], unit='s')
         # # db['ts_to'] = pd.to_datetime(db['ts_to'], unit='s')
-        # print('------ sql')
-        # print(db)
+        # logger.info('------ sql')
+        # logger.info(db)
         # bg = df.loc[df['comment'].str.contains("Home"),['in_group', 'activity', 'comment','duration_sec','ts_from','ts_to']]
         # # bg['ts_from'] = pd.to_datetime(bg['ts_from'], unit='s')
         # # bg['ts_to'] = pd.to_datetime(bg['ts_to'], unit='s')
-        # print('------ api')
-        # print(bg)
+        # logger.info('------ api')
+        # logger.info(bg)
         # toS = to_save.loc[to_save['comment'].str.contains("Home"),['in_group', 'activity', 'comment','duration_sec','ts_from','ts_to']]
         # # toS['ts_from'] = pd.to_datetime(toS['ts_from'], unit='s')
         # # toS['ts_to'] = pd.to_datetime(toS['ts_to'], unit='s')
-        # print('------ 2save')
-        # print(toS)
+        # logger.info('------ 2save')
+        # logger.info(toS)
         #
         # z=bg.merge(db.drop_duplicates(),
         #          on=['in_group', 'activity', 'comment',
         #              'duration_sec', 'ts_from', 'ts_to'],
         #          how='left', indicator=True)
-        # print(z)
-        print(to_save.to_string())
+        # logger.info(z)
+        self.logger.info(to_save.to_string())
         return self._db_handler.write_logme(to_save)

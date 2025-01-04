@@ -6,12 +6,8 @@ from pathlib import Path
 from typing import Any, Dict, List, NamedTuple
 
 import pandas as pd
-from sqlalchemy import (create_engine, MetaData, Table,
-                        Column, Integer, String, sql)
-from logme import (DB_READ_ERROR, DB_WRITE_ERROR, JSON_ERROR,
-                   SUCCESS)
-from sqlalchemy import (create_engine, MetaData, Table,
-                        Column, Integer, String, sql)
+from sqlalchemy import (create_engine, MetaData, Table,Column, Integer, String, sql)
+from logme import (DB_READ_ERROR, DB_WRITE_ERROR, JSON_ERROR,SUCCESS)
 
 DEFAULT_DB_FILE_PATH = Path.home().joinpath(
     "." + Path.home().stem + "_logme.db"
@@ -106,18 +102,15 @@ class DatabaseHandler:
         # @todo Create a backup before writing
         # drop table logmeBK if exists;
         # create table logmeBK as select * from logme;
+
         try:
             sqlite_db = f"sqlite:///{self._db_path}"
+            sqlite_table = "logme"
             engine = create_engine(sqlite_db, echo=True)
-            with engine.connect() as  sqlite_connection:
+            with engine.connect() as conn:
                 try:
-                    sqlite_table = "logme"
-                    df.to_sql(sqlite_table,
-                              sqlite_connection,
-                              index=False,
-                              if_exists='append')
-                    return SUCCESS
-                except OSError:  # Catch file IO problems
+                    df.to_sql(sqlite_table,conn.connection ,index=False,if_exists='append')
+                except OSError:
                     return DB_READ_ERROR
         except OSError:  # Catch file IO problems
             return DB_READ_ERROR

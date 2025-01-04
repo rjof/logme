@@ -1,12 +1,14 @@
 """Top-level package for logme."""
 
-from os import path, environ
+from os import path, environ, mkdir
 import sys
 import collections
 from pathlib import Path
 import configparser
 from dotenv import load_dotenv
 import typer
+import logging
+from datetime import datetime
 if sys.version_info.major == 3 and sys.version_info.minor >= 10:
     from collections.abc import MutableMapping
     setattr(collections, "MutableMapping", collections.abc.MutableMapping)
@@ -16,18 +18,29 @@ else:
 __app_name__ = "logme"
 __version__ = "0.1.0"
 
-
+now = datetime.now()  # current date and time
+date_time = now.strftime("%Y-%m-%d_%H-%M-%S")
+logger = logging.getLogger(__app_name__)
+if not path.exists('logs'):
+    mkdir('logs')
+logging.basicConfig(format='%(asctime)s [%(levelname)s] [%(name)s] %(message)s',
+                    filename=f'logs/{date_time}.log', 
+                    encoding='utf-8', 
+                    level=logging.INFO)
 CONFIG_DIR_PATH = Path(typer.get_app_dir(__app_name__))
-print(f"CONFIG_DIR_PATH: {CONFIG_DIR_PATH}")
+logger.info(f"CONFIG_DIR_PATH: {CONFIG_DIR_PATH}")
 CONFIG_FILE_PATH = CONFIG_DIR_PATH / "config.ini"
-print(f"CONFIG_FILE_PATH: {CONFIG_FILE_PATH}")
+logger.info(f"CONFIG_FILE_PATH: {CONFIG_FILE_PATH}")
 
 config_parser = configparser.ConfigParser()
 config_parser.read(CONFIG_FILE_PATH)
 sourcesList = config_parser.get("Sources", "src").split(",")
 duolingo_languages = config_parser.get("duolingo", "languages").split(",")
 duolingo_end_points = config_parser.get("duolingo", "end_points").split(",")
-
+instagram_tmpdir = config_parser.get("instagram", "tmpdir")
+instagram_external_hdd = config_parser.get("instagram","external_hdd")
+instagram_cookiefile = config_parser.get("instagram", "cookiefile")
+instagram_sessionfile = config_parser.get("instagram","sessionfile")
 (
     SUCCESS,
     DIR_ERROR,
