@@ -95,8 +95,12 @@ def source_trigger(src: str = None) -> None:
         # downloader.process(skills)
     elif src == 'koreaderStatistics':
         logger.info('Process koreader statistic file')
-        processor = KoreaderStatistics(src, dst)
-        processor.process()
+        if conf['connection'] == 'GoogleDrive':
+            # downloader = GoogleDriveDownloader(src, dst)
+            # return downloader.download(src, dst)
+        if conf['connection'] == 'file_system':
+            processor = KoreaderStatistics(src, dst)
+            processor.process()
     elif src == 'koreaderClipping':
         logger.info('Process highlighted texts in Koreader')
         processor = KoreaderClipping(src, dst)

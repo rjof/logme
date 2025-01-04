@@ -1,16 +1,14 @@
-# This file is saved in /home/<user_name>/.config/logme/config.ini
-
 [General]
 database = /home/rjof/.rjof_logme.db
 
 [Sources]
-src = aTimeLogger,duolingo,koreaderStatistics,koreaderClipping,pomodoro,podcast_adict,multi_timer,tap_log,loop_habits
+src = aTimeLogger,duolingo,koreaderStatistics,koreaderClipping,pomodoro,podcast_adict,multi_timer,tap_log,loop_habits,instagram
 
 [LocalPaths]
 storage = /home/rjof/logme_data
 
 [aTimeLogger]
-connection = api
+connection = api or GoogleDrive
 format = json
 sep = ,
 date_format = yyyy-mm-dd hh:mm
@@ -21,10 +19,11 @@ days_to_retrieve_api = 365
 [duolingo]
 connection = api
 format = json
-languajes = fr, de
+languages = de,fr
+end_points = user_info,known_words,streak_info,learned_skills
 
 [koreaderStatistics]
-connection = file_system
+connection = file_system or GoogleDrive
 src_file = /home/automation/kindle/kindle_rayen/koreader_rayen/statistics/statistics.sqlite3
 format = sqlite
 
@@ -32,6 +31,12 @@ format = sqlite
 connection = file_system
 src_file = /home/automation/kindle/kindle_rayen/koreader_rayen/clipboard/KOReaderClipping.txt
 format = text
+
+[instagram]
+tmpdir = /home/rjof/instagramSavedTmp
+external_hdd = /media/rjof/toshiba/rjof/instagram/instaloader/saved/
+cookiefile = /home/rjof/snap/firefox/common/.mozilla/firefox/ycxcs1wp.default/cookies.sqlite
+sessionfile = /home/rjof/.config/instaloader/session-errejotaoefe
 
 [pomodoro]
 connection = GoogleDrive
@@ -72,4 +77,3 @@ sep = ,
 date_format = yyyy-mm-dd hh:mm
 fields = Group, Activity type, Duration, From, To, Comment
 field_type = str, date (hh:mm), date, date, str
-

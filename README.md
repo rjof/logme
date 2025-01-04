@@ -62,6 +62,7 @@ As an example of the use of the api and to use it in the roadmap of this package
 The intervals between achievements will be used to generate rules.
 
 ## Instagram with instaloader and selenium
+Downloads all the posts saved and unsave them from the site.
 
 ### Refresh session
 
@@ -152,6 +153,14 @@ Commands:
   source    Process a source.
 </code></pre>
 
+## Minimal sqlite checks
+```
+sqlite3 /home/rjof/.rjof_logme.db
+
+.mode table
+
+select *, datetime(ts_to, 'unixepoch') as ts_to_date from logme order by ts_to desc limit 10
+```
 
 # ChatGPT test
 Hi chat,

@@ -158,6 +158,8 @@ class InstagramIngest:
                 next = False
         return next
 
+class InstagramProcess:
+    
 
 def test_instagram():
     driver = InstagramIngest.setup()

@@ -20,6 +20,8 @@ class KoreaderClipping:
         self.src = src
         self.dst = dst
         self.conf = logme.get_source_conf(self.src)
+        self.logger = logging.getLogger(self.__class__.__name__)
+
         if config.CONFIG_FILE_PATH.exists():
             db_path = database.get_database_path(config.CONFIG_FILE_PATH)
         else:
