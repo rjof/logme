@@ -2,7 +2,7 @@ import json
 import os.path
 from sqlalchemy import (create_engine, sql)
 from logme import (config, database, sources, SUCCESS,
-                   logme, JSON_ERROR, DB_READ_ERROR)
+                   logme, JSON_ERROR, DB_READ_ERROR, now, date_time)
 from logme.database import (DatabaseHandler, SQLiteResponse,
                             DBResponse)
 from os import makedirs
@@ -10,8 +10,9 @@ import typer
 from pathlib import Path
 import pandas as pd
 import re
+import logging
 
-class KoreaderClipping:
+class KoreaderClippingIngest:
     """
     Class to process the highlighted texts in Koreader
     """
@@ -44,7 +45,8 @@ class KoreaderClipping:
         loacation in the config file to LocalPaths->storage/KoreaderStatistics/
         :return:
         """
-        dst_path = Path(self.dst) / self.src
+#        dst_path = Path(self.dst) / self.src
+        dst_path = Path(self.dst) / self.src / f"{date_time}"
         if not dst_path.exists():
             makedirs(dst_path)
         # check if file in koreader->connection is newer than
@@ -59,8 +61,9 @@ class KoreaderClipping:
         """
         self.move_from_landing()
         
-        dst_path = Path(self.dst) / self.src
-        patternBeginNote = "^[\\t\\s]+-- Página: [0-9]*, añadida a (.*)\n"
+        # dst_path = Path(self.dst) / self.src
+        dst_path = Path(self.dst) / self.src / f"{date_time}"
+        patternBeginNote = "(^[\\t\\s]+-- Página: [0-9]*, añadida a (.*)\n|^[\\t\\s]+—Page : [0-9]*, ajouté (.*)\n)"
         patternEndNote = "-=-=-=-=-=-"
         patternNote = "Página [0-9]* "
         data = [["a","b","c"]]
@@ -90,11 +93,11 @@ class KoreaderClipping:
                 endNote = re.findall(patternEndNote, line)
 
                 if not beginNote and not endNote:
-                    print(f"bookTile should be: {line}")
+                    self.logger.info(f"bookTile should be: {line}")
                     bookTitle = line.replace(u"\u3000", "")
                     line = file.readline()
                 # print(f"{i}: {line}")
-                # print(f"  bookTitle: {bookTitle}")
+                print(f"  bookTitle: {bookTitle}")
                 # print(f"  note:      {note}")
                 # print(f"  noteDate:  {noteDate}")
                 # print(f"  line:      {line}")

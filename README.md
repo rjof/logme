@@ -153,13 +153,21 @@ Commands:
   source    Process a source.
 </code></pre>
 
-## Minimal sqlite checks
+## Minimal sqlite queries
 ```
 sqlite3 /home/rjof/.rjof_logme.db
 
 .mode table
+```
 
+### unix epoc to date
+```
 select *, datetime(ts_to, 'unixepoch') as ts_to_date from logme order by ts_to desc limit 10
+```
+
+### Pages read (KoreaderStatistics)
+```
+select activity,count(activity) as pages from logme where in_group = 'Leo' group by activity order by pages;
 ```
 
 # ChatGPT test

@@ -159,6 +159,7 @@ class InstagramIngest:
         return next
 
 class InstagramProcess:
+    pass
     
 
 def test_instagram():

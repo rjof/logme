@@ -36,6 +36,8 @@ def init_database(db_path: Path) -> int:
                       Column('duration_sec', Integer),
                       Column('ts_from',      Integer),
                       Column('ts_to',        Integer),
+                      Column('src',          String),
+                      Column('ts_added',     Integer)
                       )
         meta.create_all(engine)
         #db_path.write_text("[]")  # Empty to-do list
@@ -91,7 +93,7 @@ class DatabaseHandler:
                             list_logme,
                         columns=['hash', 'in_group','activity',
                                  'comment','duration_sec',
-                                 'ts_from','ts_to']),
+                                 'ts_from','ts_to','src','ts_added']),
                         SUCCESS)
                 except OSError:  # Catch file IO problems
                     return DBResponse([], DB_READ_ERROR)

@@ -5,5 +5,5 @@
 
 from .ATimeLogger import get_ProcessATimeLoggerApi, ATimeLoggerApi, ProcessATimeLoggerApi
 from .Duolingo import DuolingoApi
-from .KoreaderClipping import KoreaderClipping
+from .KoreaderClipping import KoreaderClippingIngest
 from .KoreaderStatistics import KoreaderStatistics, KoreaderDatabaseHandler

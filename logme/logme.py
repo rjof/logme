@@ -1,6 +1,6 @@
 """This module provides the logme model-controller."""
 
-from .sources import KoreaderClipping
+from .sources import KoreaderClippingIngest
 from .sources import KoreaderStatistics
 from .sources import ATimeLogger
 from .sources import Duolingo
@@ -75,7 +75,6 @@ def get_source_conf(src: str = None) -> dict:
 def source_trigger(src: str = None) -> None:
     logger.info(f"src: {src}")
     conf = get_source_conf(src)
-    # logger.info(f"src config: {src}\n{conf}")
     dst = get_local_storage_path(config.CONFIG_FILE_PATH)
     if src == 'aTimeLogger':
         logger.info('get aTimeLogger data')
@@ -88,7 +87,7 @@ def source_trigger(src: str = None) -> None:
             downloader.download()
             # Process downloaded with pandas
             processor = ATimeLogger.get_ProcessATimeLoggerApi(dst)
-            result = processor.process(dst)
+            result = processor.process(src,dst)
     elif src == 'duolingo':
         logger.info(f'Downloading {src}')
         languages_processor = Duolingo.DuolingoApi(src, dst)
@@ -96,14 +95,14 @@ def source_trigger(src: str = None) -> None:
     elif src == 'koreaderStatistics':
         logger.info('Process koreader statistic file')
         if conf['connection'] == 'GoogleDrive':
-            # downloader = GoogleDriveDownloader(src, dst)
+            downloader = GoogleDriveDownloader(src, dst)
             # return downloader.download(src, dst)
         if conf['connection'] == 'file_system':
             processor = KoreaderStatistics(src, dst)
             processor.process()
     elif src == 'koreaderClipping':
         logger.info('Process highlighted texts in Koreader')
-        processor = KoreaderClipping(src, dst)
+        processor = KoreaderClippingIngest(src, dst)
         processor.pre_process()
     elif src == 'instagram':
         logger.info('Process instagram saved posts')

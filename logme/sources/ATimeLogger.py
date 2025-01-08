@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 from json import load, dump
-from logme import (config, database, sources, SUCCESS,
-                   logme)
+from logme import (config, database, SUCCESS,
+                   logme, now, date_time)
 
 from logme.database import DatabaseHandler
 from os import makedirs
@@ -14,6 +14,7 @@ from pathlib import Path
 import pandas as pd
 import time
 import logging
+import numpy as np
 
 class ProcessATimeLoggerApi:
     """Class to process aTimeLogger json files"""
@@ -23,7 +24,7 @@ class ProcessATimeLoggerApi:
         self._db_handler = DatabaseHandler(db_path)
         self.logger = logging.getLogger(self.__class__.__name__)
 
-    def process(self, src: Path = None) -> int:
+    def process(self, srcName: str, src: Path = None) -> int:
         # Check files activities.json & intervals.json exists
         input_files = {
             'activities_file': Path(src) / 'aTimeLogger/activities.json',
@@ -95,10 +96,18 @@ class ProcessATimeLoggerApi:
         already_saved = merged[merged['_merge']=='both']
         to_save = merged[merged['_merge']!='both']
         to_save = to_save[m2.columns]
+        self.logger.info(f"to_save: {to_save.shape}")
+        num_rows = len(to_save.index)
+        ts_added = int(time.mktime(now.timetuple()))
+        date_col = np.repeat(ts_added, num_rows)
+        src_col = np.repeat(srcName, num_rows)
+        to_save['src'] = src_col
+        to_save['ts_added'] = date_col
         self.logger.info(f"merged: {merged.shape}")
         self.logger.info(f"already_saved: {already_saved.shape}")
-        self.logger.info(f"to_save: {to_save.shape}")
-        self.logger.info(f"To be inserted: {to_save.shape}")
+        self.logger.info(f"To be inserted (to_save): {to_save.shape}")
+        self.logger.info(f"Some rows: {to_save}")
+
         return self._db_handler.write_logme(to_save)
 
 
@@ -112,7 +121,7 @@ class ATimeLoggerApi:
 
     def download(self) -> int:
         error = 0
-        dst_path = Path(self.dst) / self.src
+        dst_path = Path(self.dst) / self.src / f"{date_time}"
         if not dst_path.exists():
             makedirs(dst_path)
         load_dotenv('.env')

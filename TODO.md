@@ -1,3 +1,9 @@
+# change logs destination
+to data location: ~/logme_data
+
+# IMPORTATNE: cambios en .rjof_logme.db
+Requires a column with the source and a column with the date added
+
 # Souces to add
 - koreader Clipping (kindle)
 - pomodoro
@@ -9,6 +15,7 @@
 - History of Redmi Watch 2 Lite (wearable)
 - Mi Smart Band 4 (wearable)
 - Mi Fit (google app)
+- WhatsApp text
 
 # Sources storage to add
  - Dropbox

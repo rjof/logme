@@ -37,6 +37,9 @@ def _init_config_file() -> int:
 def _create_database(db_path: str) -> int:
     config_parser = configparser.ConfigParser()
     config_parser["General"] = {"database": db_path}
+    # @todo
+    # create the variable
+    config_parser["LocalPaths"] = {"storage": "/home/rjof/logme_data"}
     try:
         with CONFIG_FILE_PATH.open("w") as file:
             config_parser.write(file)

@@ -32,15 +32,6 @@ logger.info(f"CONFIG_DIR_PATH: {CONFIG_DIR_PATH}")
 CONFIG_FILE_PATH = CONFIG_DIR_PATH / "config.ini"
 logger.info(f"CONFIG_FILE_PATH: {CONFIG_FILE_PATH}")
 
-config_parser = configparser.ConfigParser()
-config_parser.read(CONFIG_FILE_PATH)
-sourcesList = config_parser.get("Sources", "src").split(",")
-duolingo_languages = config_parser.get("duolingo", "languages").split(",")
-duolingo_end_points = config_parser.get("duolingo", "end_points").split(",")
-instagram_tmpdir = config_parser.get("instagram", "tmpdir")
-instagram_external_hdd = config_parser.get("instagram","external_hdd")
-instagram_cookiefile = config_parser.get("instagram", "cookiefile")
-instagram_sessionfile = config_parser.get("instagram","sessionfile")
 (
     SUCCESS,
     DIR_ERROR,
@@ -75,3 +66,16 @@ creds_dict = {
     "auth_provider_x509_cert_url": environ.get('auth_provider_x509_cert_url'),
     "client_x509_cert_url": environ.get('client_x509_cert_url')
 }
+
+config_parser = configparser.ConfigParser()
+try:
+    config_parser.read(CONFIG_FILE_PATH)
+    sourcesList = config_parser.get("Sources", "src").split(",")
+    duolingo_languages = config_parser.get("duolingo", "languages").split(",")
+    duolingo_end_points = config_parser.get("duolingo", "end_points").split(",")
+    instagram_tmpdir = config_parser.get("instagram", "tmpdir")
+    instagram_external_hdd = config_parser.get("instagram","external_hdd")
+    instagram_cookiefile = config_parser.get("instagram", "cookiefile")
+    instagram_sessionfile = config_parser.get("instagram","sessionfile")
+except:
+    FILE_ERROR

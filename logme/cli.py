@@ -29,6 +29,7 @@ def init(
             fg=typer.colors.RED,
         )
         raise typer.Exit(1)
+    dst = logme.get_local_storage_path(config.CONFIG_FILE_PATH)
     db_init_error = database.init_database(Path(db_path))
     if db_init_error:
         typer.secho(

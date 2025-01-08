@@ -1,7 +1,7 @@
 import json
 import os.path
 from sqlalchemy import (create_engine, sql)
-from logme import (config, database, sources, SUCCESS,
+from logme import (config, database, SUCCESS, now, date_time,
                    logme, JSON_ERROR, DB_READ_ERROR)
 from logme.database import (DatabaseHandler, SQLiteResponse,
                             DBResponse)
@@ -9,6 +9,9 @@ from os import makedirs
 import typer
 from pathlib import Path
 import pandas as pd
+import logging
+import time
+import numpy as np
 
 
 class KoreaderStatistics:
@@ -20,6 +23,7 @@ class KoreaderStatistics:
         self.src = src
         self.dst = dst
         self.conf = logme.get_source_conf(self.src)
+        self.logger = logging.getLogger(self.__class__.__name__)
         if config.CONFIG_FILE_PATH.exists():
             db_path = database.get_database_path(config.CONFIG_FILE_PATH)
         else:
@@ -43,7 +47,8 @@ class KoreaderStatistics:
         :return:
         """
         # check if file in koreader->connection is newer than
-        dst_path = Path(self.dst) / self.src
+        # dst_path = Path(self.dst) / self.src
+        dst_path = Path(self.dst) / self.src / f"{date_time}"
         if not dst_path.exists():
             makedirs(dst_path)
         files = [i.strip(" ") for i in self.conf['src_file'].split(",")]
@@ -68,9 +73,9 @@ class KoreaderStatistics:
         if err != SUCCESS:
             msg = f"The database was not found or readable."
             raise Exception(msg)
-        print(f"logme_df: {logme_df.shape}")
+        self.logger.info(f"logme_df: {logme_df.shape}")
         db_file_statistics = self.dst / self.src / os.path.basename(self.conf['src_file'])
-        print(f"db_file_statistics shape: {db_file_statistics}")
+        self.logger.info(f"db_file_statistics shape: {db_file_statistics}")
         _db_statistics = KoreaderDatabaseHandler(db_file_statistics)
         # The comment field is the page number of the book
         statistics_df, err = _db_statistics.load_statistics()
@@ -88,8 +93,8 @@ class KoreaderStatistics:
                            'comment','duration_sec',
                            'ts_from','ts_to']]
 
-        # print(statistics_df.info())
-        # print(logme_df.info())
+        # self.logger.info(statistics_df.info())
+        # self.logger.info(logme_df.info())
 
         merged = statistics_df.merge(
             logme_df.drop_duplicates(),
@@ -97,27 +102,32 @@ class KoreaderStatistics:
                 'activity', 'comment',
                 'duration_sec', 'ts_from', 'ts_to'],
             how='left', indicator=True)
-        # print(merged.head(10))
-        # print(merged.info())
+        # self.logger.info(merged.head(10))
+        # self.logger.info(merged.info())
         merged.rename(columns={'hash_x': 'hash'}, inplace=True)
 
         already_saved = merged[merged['_merge']=='both']
         to_save = merged[merged['_merge']!='both']
         to_save = to_save[statistics_df.columns]
-        print(f"loaded:     {statistics_df.shape}")
-        print(f"merged:         {merged.shape}")
-        print(f"already_saved:  {already_saved.shape}")
-        print(f"To be inserted: {to_save.shape}")
+        num_rows = len(to_save.index)
+        ts_added = int(time.mktime(now.timetuple()))
+        date_col = np.repeat(ts_added, num_rows)
+        src_col = np.repeat(self.src, num_rows)
+        to_save['src'] = src_col
+        to_save['ts_added'] = date_col
+        self.logger.info(f"loaded:         {statistics_df.shape}")
+        self.logger.info(f"merged:         {merged.shape}")
+        self.logger.info(f"already_saved:  {already_saved.shape}")
+        self.logger.info(f"To be inserted: {to_save.shape}")
+        self.logger.info(f"Some rows: {to_save}")
 
         return self._db_handler.write_logme(to_save)
-
-
-
 
 class KoreaderDatabaseHandler:
     def __init__(self, db_path: Path) -> None:
         self._db_path = db_path
-        print(f"self db path: {self._db_path}")
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger.info(f"self db path: {self._db_path}")
 
     def read_statistics(self) -> DBResponse:
         try:
