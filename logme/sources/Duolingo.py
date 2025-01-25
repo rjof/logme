@@ -30,8 +30,6 @@ class DuolingoApi:
         self.src = src
         self.dst = dst
         self.logger = logging.getLogger(self.__class__.__name__)
-        # now = datetime.now()  # current date and time
-        # self.date_time = now.strftime("%Y-%m-%d_%H-%M-%S")
         self.logger.info(f'date and time: {date_time}')
 
         if config.CONFIG_FILE_PATH.exists():

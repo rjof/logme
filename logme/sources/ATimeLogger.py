@@ -27,8 +27,8 @@ class ProcessATimeLoggerApi:
     def process(self, srcName: str, src: Path = None) -> int:
         # Check files activities.json & intervals.json exists
         input_files = {
-            'activities_file': Path(src) / 'aTimeLogger/activities.json',
-            'intervals_file': Path(src) / 'aTimeLogger/intervals.json'
+            'activities_file': Path(src) / f'aTimeLogger/{date_time}/activities.json',
+            'intervals_file': Path(src) / f'aTimeLogger/{date_time}/intervals.json'
         }
         
         # Load them
@@ -53,50 +53,55 @@ class ProcessATimeLoggerApi:
             intervals["to"] - intervals["from"]
         self.logger.info(f"intervals.shape: {intervals.shape}")
 
-        m1 = pd.merge(
+        activities_intervals = pd.merge(
             intervals,
             activities,
             right_on="guid",
             left_on="type.guid")[["name","comment","duration_sec",
                                   "from","to","group","parent"]]
-        self.logger.info(f"m1: {m1.shape}")
+        self.logger.info(f"activities_intervals: {activities_intervals.shape}")
+        self.logger.info(f"activities_intervals: {activities_intervals.columns}")
 
-        m2 = pd.merge(
-            m1,
+        activities_intervals_select = pd.merge(
+            activities_intervals,
             activities,
             left_on="parent",
             right_on="guid"
         )[["name_y", "name_x","comment","duration_sec","from","to"]]
-        m2.rename(columns={'name_y': 'in_group',
+        activities_intervals_select.rename(columns={'name_y': 'in_group',
                            'name_x': 'activity',
                            'from': 'ts_from',
                            'to': 'ts_to'
                            }, inplace=True)
         # Add a hash as index
-        m2['hash'] = pd.util.hash_pandas_object(m2)
+        activities_intervals_select['hash'] = pd.util.hash_pandas_object(activities_intervals_select)
         # Change type from unit64 to object
-        m2['hash'] = m2['hash'].astype(str)
-        m2 = m2[['hash','in_group', 'activity', 'comment',
+        activities_intervals_select['hash'] = activities_intervals_select['hash'].astype(str)
+        activities_intervals_select = activities_intervals_select[['hash','in_group', 'activity', 'comment',
                  'duration_sec', 'ts_from', 'ts_to']]
-        m2 = m2.sort_values(by="ts_from")
-        self.logger.info(f"m2: {m2.shape}")
+        activities_intervals_select = activities_intervals_select.sort_values(by="ts_from")
+        self.logger.info(f"activities_intervals_select: {activities_intervals_select.shape}")
+        self.logger.info(f"activities_intervals_select: {activities_intervals_select.columns}")
 
         logme_df, err = self._db_handler.load_logme()
+        logme_df = logme_df[activities_intervals_select.columns]
         self.logger.info(f"logme_df: {logme_df.shape}")
+        self.logger.info(f"logme_df: {logme_df.columns}")
 
         if err != SUCCESS:
             msg = f"The database was not found or readable."
             raise Exception(msg)
-        logme_df.columns = m2.columns
-        merged = m2.merge(logme_df.drop_duplicates(),
+        logme_df.columns = activities_intervals_select.columns
+        merged = activities_intervals_select.merge(logme_df.drop_duplicates(),
                           on=['in_group', 'activity', 'comment',
                               'duration_sec', 'ts_from', 'ts_to'],
                           how='left', indicator=True)
         merged.rename(columns={'hash_x':'hash'}, inplace=True)
         already_saved = merged[merged['_merge']=='both']
         to_save = merged[merged['_merge']!='both']
-        to_save = to_save[m2.columns]
+        to_save = to_save[activities_intervals_select.columns]
         self.logger.info(f"to_save: {to_save.shape}")
+        self.logger.info(f"to_save: {to_save.columns}")
         num_rows = len(to_save.index)
         ts_added = int(time.mktime(now.timetuple()))
         date_col = np.repeat(ts_added, num_rows)
@@ -131,9 +136,13 @@ class ATimeLoggerApi:
         from_secs = int(time.time()) - int(conf['days_to_retrieve_api'] * 24 * 60 * 60)
         # Another not useful end point
         # "https://app.atimelogger.com/api/v2/types",
+        # The logic of limit, which is how many activities to download, is to assume
+        # that the maximum to downoad is the number of seconds in the interval
+        # divided by 5 minutes (300 seconds)
+        limit = int(from_secs/300)
         urls = [
             "https://app.atimelogger.com/api/v2/activities?limit=200",
-            f"https://app.atimelogger.com/api/v2/intervals?limit=1000&from={from_secs}"
+            f"https://app.atimelogger.com/api/v2/intervals?limit={limit}&from={from_secs}"
         ]
         for url in urls:
             resp = requests.get(url, auth=HTTPBasicAuth(user, password))

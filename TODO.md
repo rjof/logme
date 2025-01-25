@@ -1,8 +1,4 @@
-# change logs destination
-to data location: ~/logme_data
-
-# IMPORTATNE: cambios en .rjof_logme.db
-Requires a column with the source and a column with the date added
+# Lots of fails in new installation
 
 # Souces to add
 - koreader Clipping (kindle)
@@ -46,3 +42,10 @@ Use shiny (Rlang) or Express (? Learning opportunity vs learning curve)
 
 # Instagram
 Add */media/rjof/toshiba/rjof/instagram/instaloader/instagram_organizer/* to process instagram videos
+
+# DONE <2024-01-25 14:34> change logs destination
+to data location: ~/logme_data using the config
+[LogsPath]
+logs_path = /home/rjof/logme_data/logs
+
+

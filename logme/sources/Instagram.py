@@ -44,7 +44,6 @@ class InstagramIngest:
         self.src = src
         self.dst = dst
         self.SESSIONFILE = Path(instagram_sessionfile)
-        
 
     def instaloader_import_session(self):
         self.logger.info("################### Get session cookie form firefox #######################")

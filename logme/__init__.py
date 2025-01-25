@@ -16,21 +16,13 @@ else:
     from collections import MutableMapping
 
 __app_name__ = "logme"
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 now = datetime.now()  # current date and time
 date_time = now.strftime("%Y-%m-%d_%H-%M-%S")
-logger = logging.getLogger(__app_name__)
-if not path.exists('logs'):
-    mkdir('logs')
-logging.basicConfig(format='%(asctime)s [%(levelname)s] [%(name)s] %(message)s',
-                    filename=f'logs/{date_time}.log', 
-                    encoding='utf-8', 
-                    level=logging.INFO)
+
 CONFIG_DIR_PATH = Path(typer.get_app_dir(__app_name__))
-logger.info(f"CONFIG_DIR_PATH: {CONFIG_DIR_PATH}")
 CONFIG_FILE_PATH = CONFIG_DIR_PATH / "config.ini"
-logger.info(f"CONFIG_FILE_PATH: {CONFIG_FILE_PATH}")
 
 (
     SUCCESS,
@@ -70,6 +62,7 @@ creds_dict = {
 config_parser = configparser.ConfigParser()
 try:
     config_parser.read(CONFIG_FILE_PATH)
+    DATA_PATH = config_parser.get("LocalPaths","storage")
     sourcesList = config_parser.get("Sources", "src").split(",")
     duolingo_languages = config_parser.get("duolingo", "languages").split(",")
     duolingo_end_points = config_parser.get("duolingo", "end_points").split(",")
@@ -79,3 +72,16 @@ try:
     instagram_sessionfile = config_parser.get("instagram","sessionfile")
 except:
     FILE_ERROR
+
+logger = logging.getLogger(__app_name__)
+logger_path = f'{DATA_PATH}/logs/'#{date_time}.log',
+if not path.exists(logger_path):
+    mkdir(logger_path)
+logger_file = f'{logger_path}/{date_time}.log'
+logging.basicConfig(format='%(asctime)s [%(levelname)s] [%(name)s] %(message)s',
+                    filename=logger_file,
+                    encoding='utf-8', 
+                    level=logging.INFO)
+logger.info(f"CONFIG_DIR_PATH: {CONFIG_DIR_PATH}")
+logger.info(f"CONFIG_FILE_PATH: {CONFIG_FILE_PATH}")
+logger.info(f"DATA_PATH: {DATA_PATH}")
