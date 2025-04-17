@@ -5,16 +5,20 @@ from pathlib import Path
 from typing import List, Optional
 import typer
 from logme import (ERRORS, __app_name__, __version__,
-                   config, database, logme, sourcesList)
+                   config, logme, sourcesList)
 from logme.logme import source_trigger
-
+import logme.storage.database as db
+# from logme.utils.Utils import get_local_storage_path
+import logme.utils.Utils as u
+from .logme import Todoer
 app = typer.Typer()
+
 
 
 @app.command()
 def init(
         db_path: str = typer.Option(
-            str(database.DEFAULT_DB_FILE_PATH),
+            str(db.DEFAULT_DB_FILE_PATH),
             "--db-path",
             "-db",
             prompt="logme database location?",
@@ -29,7 +33,7 @@ def init(
             fg=typer.colors.RED,
         )
         raise typer.Exit(1)
-    dst = logme.get_local_storage_path(config.CONFIG_FILE_PATH)
+    dst = get_local_storage_path(config.CONFIG_FILE_PATH)
     db_init_error = database.init_database(Path(db_path))
     if db_init_error:
         typer.secho(
@@ -43,7 +47,7 @@ def init(
                     f"{db_path}", fg=typer.colors.GREEN)
 
 
-def get_todoer() -> logme.Todoer:
+def get_todoer() -> Todoer:
     if config.CONFIG_FILE_PATH.exists():
         db_path = database.get_database_path(config.CONFIG_FILE_PATH)
     else:
@@ -66,7 +70,7 @@ def get_todoer() -> logme.Todoer:
 def process_src(src: str =
                 typer.Argument(
                     default='',
-                    help=f"Choose ono of the implemented sources:\n"
+                    help=f"Chose one of the implemented sources:\n"
                          f"{sourcesList}"
                                )) -> int:
     """Process a source."""
@@ -81,13 +85,13 @@ def process_src(src: str =
     if not src in sourcesList:
         typer.secho(
             f'There is not a source "{src}".\n'
-            f"Choose ono of the implemented sources:\n"
+            f"Chose one of the implemented sources:\n"
             f"{sourcesList}",
             fg=typer.colors.RED,
         )
         raise typer.Exit(1)
 
-    dst = logme.get_local_storage_path(config.CONFIG_FILE_PATH)
+    dst = u.get_local_storage_path(config.CONFIG_FILE_PATH)
     if not dst.exists():
         print(f"Creates directory: {dst}")
         makedirs(dst)

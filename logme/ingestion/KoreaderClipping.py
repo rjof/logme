@@ -1,16 +1,16 @@
 import json
 import os.path
 from sqlalchemy import (create_engine, sql)
-from logme import (config, database, sources, SUCCESS,
+from logme import (config, ingestion, SUCCESS,
                    logme, JSON_ERROR, DB_READ_ERROR, now, date_time)
-from logme.database import (DatabaseHandler, SQLiteResponse,
-                            DBResponse)
+from logme.storage.database import (DatabaseHandler, SQLiteResponse, DBResponse)
 from os import makedirs
 import typer
 from pathlib import Path
 import pandas as pd
 import re
 import logging
+import logme.utils.Utils
 
 class KoreaderClippingIngest:
     """
@@ -52,7 +52,7 @@ class KoreaderClippingIngest:
         # check if file in koreader->connection is newer than
         files = [i.strip(" ") for i in self.conf['src_file'].split(",")]
         for f in files:
-            logme.move_file_in_local_system(Path(f), dst_path)
+            Utils.move_file_in_local_system(Path(f), dst_path)
 
     def pre_process(self) -> pd.DataFrame:
         """

@@ -1,9 +1,9 @@
 import json
 import os.path
 from sqlalchemy import (create_engine, sql)
-from logme import (config, database, SUCCESS, now, date_time,
+from logme import (config, SUCCESS, now, date_time,
                    logme, JSON_ERROR, DB_READ_ERROR)
-from logme.database import (DatabaseHandler, SQLiteResponse,
+from logme.storage.database import (DatabaseHandler, SQLiteResponse,
                             DBResponse)
 from os import makedirs
 import typer
@@ -12,6 +12,7 @@ import pandas as pd
 import logging
 import time
 import numpy as np
+import logme.utils.Utils
 
 
 class KoreaderStatistics:
@@ -53,7 +54,7 @@ class KoreaderStatistics:
             makedirs(dst_path)
         files = [i.strip(" ") for i in self.conf['src_file'].split(",")]
         for f in files:
-            logme.move_file_in_local_system(Path(f), dst_path)
+            Utils.move_file_in_local_system(Path(f), dst_path)
 
     def process(self) -> pd.DataFrame:
         """

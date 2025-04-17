@@ -1,17 +1,20 @@
+# Reformat all sources based in Multi_Timer source
 # Lots of fails in new installation
 
 # Souces to add
-- koreader Clipping (kindle)
-- pomodoro
-- podcast adict
-- Multi timer
-- Tap log
-- loop habits
-- History from google maps (timeline)
-- History of Redmi Watch 2 Lite (wearable)
-- Mi Smart Band 4 (wearable)
-- Mi Fit (google app)
-- WhatsApp text
+## Spotify
+https://developer.spotify.com/documentation/web-api
+## koreader Clipping (kindle)
+## pomodoro
+## podcast adict
+## Multi timer
+## Tap log
+## loop habits
+## History from google maps (timeline)
+## History of Redmi Watch 2 Lite (wearable)
+## Mi Smart Band 4 (wearable)
+## Mi Fit (google app)
+## WhatsApp text
 
 # Sources storage to add
  - Dropbox
@@ -40,7 +43,7 @@ Mainly for statistics.
 
 Use shiny (Rlang) or Express (? Learning opportunity vs learning curve)
 
-# Instagram
+# DONE <2024-12-31 15:48> Instagram
 Add */media/rjof/toshiba/rjof/instagram/instaloader/instagram_organizer/* to process instagram videos
 
 # DONE <2024-01-25 14:34> change logs destination

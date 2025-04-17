@@ -56,13 +56,22 @@ creds_dict = {
     "auth_uri": environ.get('auth_uri'),
     "token_uri": environ.get('token_uri'),
     "auth_provider_x509_cert_url": environ.get('auth_provider_x509_cert_url'),
-    "client_x509_cert_url": environ.get('client_x509_cert_url')
+    "client_x509_cert_url": environ.get('client_x509_cert_url'),
+    "dropbox_token": environ.get('dropbox_token'),
+    "dropbox_appkey": environ.get('dropbox_appkey'),
+    "dropbox_secret": environ.get('dropbox_secret'),
+    "dropbox_access_code": environ.get('dropbox_access_code'),
+    "dropbox_refresh_token": environ.get('dropbox_refresh_token')
 }
 
 config_parser = configparser.ConfigParser()
 try:
     config_parser.read(CONFIG_FILE_PATH)
     DATA_PATH = config_parser.get("LocalPaths","storage")
+    logs_path = config_parser.get("LocalPaths","logs_path")
+    landing_path = config_parser.get("LocalPaths","landing_path")
+    history_path = config_parser.get("LocalPaths","history_path")
+
     sourcesList = config_parser.get("Sources", "src").split(",")
     duolingo_languages = config_parser.get("duolingo", "languages").split(",")
     duolingo_end_points = config_parser.get("duolingo", "end_points").split(",")
@@ -74,7 +83,7 @@ except:
     FILE_ERROR
 
 logger = logging.getLogger(__app_name__)
-logger_path = f'{DATA_PATH}/logs/'#{date_time}.log',
+logger_path = f'{logs_path}'
 if not path.exists(logger_path):
     mkdir(logger_path)
 logger_file = f'{logger_path}/{date_time}.log'

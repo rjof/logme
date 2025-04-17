@@ -1,20 +1,34 @@
 [General]
-database = /home/rjof/.rjof_logme.db
-
-[Sources]
-src = aTimeLogger,duolingo,koreaderStatistics,koreaderClipping,pomodoro,podcast_adict,multi_timer,tap_log,loop_habits,instagram
+database = /home/rjof/logme_data/.rjof_logme.db
 
 [LocalPaths]
 storage = /home/rjof/logme_data
 
+[LogsPath]
+logs_path = /home/rjof/logme_data/logs
+
+[Sources]
+src = aTimeLogger,duolingo,koreaderStatistics,koreaderClipping,pomodoro,podcast_adict,multi_timer,tap_log,loop_habits,instagram,Multi_Timer
+
+[Multi_Timer]
+connection = GoogleDrive
+format = csv
+sep = ,
+header = true
+# 384, "Nov 10, 2023 12:46:26 AM", "pausa",         ,Start,      00:00,  00:15
+# 595, "Dec 23, 2023 9:08:19 PM",  "muñecas", 2 of 2,Stop Alarm, +00:09, 00:30
+date_format = %%b %%-d, %%Y %%-H:%%M:%%S
+fields = No,Time,Name,Repeat,Action,Elapsed time,Duration
+field_type = int, datetime, str, str, str, , [+]%%M:%%S, %%M:%%S
+
 [aTimeLogger]
-connection = api or GoogleDrive
-format = json
+connection = GoogleDrive
+format = csv
 sep = ,
 date_format = yyyy-mm-dd hh:mm
 fields = Group, Activity type, Duration, From, To, Comment
 field_type = str, date (hh:mm), date, date, str
-days_to_retrieve_api = 365
+days_to_retrieve_api = 3650
 
 [duolingo]
 connection = api
@@ -23,13 +37,13 @@ languages = de,fr
 end_points = user_info,known_words,streak_info,learned_skills
 
 [koreaderStatistics]
-connection = file_system or GoogleDrive
-src_file = /home/automation/kindle/kindle_rayen/koreader_rayen/statistics/statistics.sqlite3
+connection = file_system
+src_file = /home/rjof/Documents/koreader_rayen/statistics/statistics.sqlite3
 format = sqlite
 
 [koreaderClipping]
 connection = file_system
-src_file = /home/automation/kindle/kindle_rayen/koreader_rayen/clipboard/KOReaderClipping.txt
+src_file = /home/rjof/Documents/koreader_rayen/clipboard/KOReaderClipping.txt
 format = text
 
 [instagram]
@@ -77,3 +91,4 @@ sep = ,
 date_format = yyyy-mm-dd hh:mm
 fields = Group, Activity type, Duration, From, To, Comment
 field_type = str, date (hh:mm), date, date, str
+

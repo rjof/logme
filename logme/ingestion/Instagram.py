@@ -21,8 +21,8 @@ except ImportError:
     from backports import lzma
 import glob
 from pathlib import Path
-from logme import (config, database, SUCCESS, instagram_tmpdir, instagram_external_hdd, instagram_cookiefile, instagram_sessionfile)
-
+from logme import (config, SUCCESS, instagram_tmpdir, instagram_external_hdd, instagram_cookiefile, instagram_sessionfile)
+from logme.storage.database import *
 class InstagramIngest:
     """Class to download saved posts"""
 

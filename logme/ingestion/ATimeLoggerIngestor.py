@@ -1,9 +1,8 @@
 from dotenv import load_dotenv
 from json import load, dump
-from logme import (config, database, SUCCESS,
+from logme import (config, SUCCESS,
                    logme, now, date_time)
-
-from logme.database import DatabaseHandler
+from logme.storage.database import DatabaseHandler
 from os import makedirs
 from requests.auth import HTTPBasicAuth
 from urllib.parse import urlparse

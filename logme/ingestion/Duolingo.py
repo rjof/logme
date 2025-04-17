@@ -13,9 +13,9 @@ import pandas as pd
 import time
 import duolingo
 from datetime import datetime
-from logme import (config, database, sources,SUCCESS, duolingo_languages, duolingo_end_points, logme, date_time)
-from logme.database import DatabaseHandler
-from logme.utils import str_to_class
+from logme import (config, sources,SUCCESS, duolingo_languages, duolingo_end_points, logme, date_time)
+from logme.storage.database import DatabaseHandler
+from logme.utils.Utils import str_to_class
 import logging
 
 languages_dict = {'fr': 'Français', 'de': 'Deutsch'}

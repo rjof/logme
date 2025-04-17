@@ -2,6 +2,7 @@
 
 import configparser
 from pathlib import Path
+from os import makedirs, path
 
 import typer
 
@@ -9,6 +10,7 @@ from logme import DB_WRITE_ERROR, DIR_ERROR, FILE_ERROR, SUCCESS, __app_name__
 
 CONFIG_DIR_PATH = Path(typer.get_app_dir(__app_name__))
 CONFIG_FILE_PATH = CONFIG_DIR_PATH / "config.ini"
+config_parser = configparser.ConfigParser()
 
 
 def init_app(db_path: str) -> int:
@@ -19,6 +21,9 @@ def init_app(db_path: str) -> int:
     database_code = _create_database(db_path)
     if database_code != SUCCESS:
         return database_code
+    zones_code = _create_zone_paths
+    if zones_code != SUCCESS:
+        return zones_code
     return SUCCESS
 
 
@@ -35,7 +40,6 @@ def _init_config_file() -> int:
 
 
 def _create_database(db_path: str) -> int:
-    config_parser = configparser.ConfigParser()
     config_parser["General"] = {"database": db_path}
     # @todo
     # create the variable
@@ -47,3 +51,12 @@ def _create_database(db_path: str) -> int:
         return DB_WRITE_ERROR
     return SUCCESS
  
+def _create_zone_paths() -> int:
+    try:
+        makedirs(Path(configparser["LocalPaths"]["storage"]))
+        makedirs(Path(configparser["LocalPaths"]["logs_paths"]))
+        makedirs(Path(configparser["LocalPaths"]["loanding_path"]))
+        makedirs(Path(configparser["LocalPaths"]["history_path"]))
+    except OSError:
+        return DIR_ERROR
+    return SUCCESS
