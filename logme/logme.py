@@ -5,7 +5,7 @@ from .processing import Multi_TimerProcessor
 from .connectors import GoogleDrive
 from .connectors import Dropbox
 import pandas as pd
-from logme.storage.database import DatabaseHandler
+from .storage.database import DatabaseHandler
 from logme import DB_READ_ERROR, ID_ERROR, creds_dict, SCOPES, CONFIG_FILE_PATH, FILE_ERROR, SUCCESS, config, date_time
 import io
 import os.path
@@ -171,12 +171,15 @@ def source_trigger(src: str = None) -> None:
             processor = Instagram.InstagramIngest(src, dst)
             processor.instaloader_download(1)
         case "Multi_Timer":
-            logger.info('Process Multi Timer')
+            logger.info('Process Multi_Timer')
             ingestor = Multi_TimerIngestor.MultiTimerIngest(src, dst_path, conf)
-            files_downloaded = ingestor.ingest_to_landing()
+            # files_downloaded = ingestor.ingest_to_landing()
+            files_downloaded = ['/home/rjof/logme_data/landing/Multi_Timer/2025-04-17_17-44-10/timer_history_2025_04_06.csv']
+            logger.info(f'Files downloaded: {files_downloaded}')
             if files_downloaded:
-                ingestor.move_to_history(files_downloaded)
-                processor = Multi_TimerProcessor.Multi_TimerProcessor(files_downloaded, conf)
+                # ingestor.move_to_history(files_downloaded)
+                files_moved = [f.replace("/landing/","/history/") for f in files_downloaded]
+                processor = Multi_TimerProcessor.Multi_TimerProcessor(files_moved, conf)
                 exit(2)
         case _:
             logger.info(f"{src} not yet implemented. Check TODO.md file for check the planning.")

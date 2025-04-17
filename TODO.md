@@ -1,3 +1,6 @@
+# working in processing Multi_Timer
+https://vscode.dev/github/rjof/logme/blob/master/logme/logme.py#L180
+
 # Reformat all sources based in Multi_Timer source
 # Lots of fails in new installation
 

@@ -52,7 +52,7 @@ class DBResponse(NamedTuple):
 
 
 class SQLiteResponse(NamedTuple):
-    logme_merged: pd.DataFrame
+    logme_df: pd.DataFrame
     error: int
 
 class DatabaseHandler:
@@ -60,6 +60,33 @@ class DatabaseHandler:
     #        code for a json of to-do
     def __init__(self, db_path: Path) -> None:
         self._db_path = db_path
+
+    def _list_tables(self) -> SQLiteResponse:
+        """
+        List all the tables in the database
+        
+        Usage example:
+        
+            df, err = self._db_handler._list_tables()
+            if err != SUCCESS:
+                msg = f"The database was not found or readable."
+                raise Exception(msg)
+            self.logger.info(f"df: {df}")
+        """
+        try:
+            sqlite_db = f"sqlite:///{self._db_path}"
+            engine = create_engine(sqlite_db, echo=True)
+            with engine.connect() as  sqlite_connection:
+                try:
+                    sql_query = sql.text("""SELECT name FROM sqlite_master WHERE type='table'""")
+                    list_logme = sqlite_connection.execute(
+                        sql_query).fetchall()
+                    return SQLiteResponse(
+                        pd.DataFrame(list_logme,columns=['name']),SUCCESS)
+                except OSError:  # Catch file IO problems
+                    return DBResponse([], DB_READ_ERROR)
+        except OSError:  # Catch file IO problems
+            return SQLiteResponse(pd.DataFrame(), DB_READ_ERROR)
 
     def read_logme(self) -> DBResponse:
         try:
@@ -112,6 +139,19 @@ class DatabaseHandler:
             with engine.connect() as conn:
                 try:
                     df.to_sql(sqlite_table,conn.connection ,index=False,if_exists='append')
+                except OSError:
+                    return DB_READ_ERROR
+        except OSError:  # Catch file IO problems
+            return DB_READ_ERROR
+        
+    def df_to_db(self, df: pd.DataFrame, table_name: str) -> int:
+        try:
+            sqlite_db = f"sqlite:///{self._db_path}"
+            engine = create_engine(sqlite_db, echo=True)
+            with engine.connect() as conn:
+                try:
+                    df.to_sql(table_name,conn.connection ,index=False,if_exists='append')
+                    return SUCCESS
                 except OSError:
                     return DB_READ_ERROR
         except OSError:  # Catch file IO problems

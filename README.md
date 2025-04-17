@@ -89,7 +89,16 @@ python3 instaloader_session.py -c /home/rjof/snap/firefox/common/.mozilla/firefo
 instaloader --dirname-pattern <DIRECTORY_NAME_TO_SAVE> --login errejotaoefe --post-filter="date_utc >= datetime(2024,12,1) and date_utc <= datetime(2024,12,30)" :saved
 ```
 
-# Storage
+# Storage & data architecture
+The model is medallion
+
+The raw tables are named as <SOURCE>_raw and every field is of type String
+
+## Stages
+### ingestion
+### processing
+### integration
+
 The collected data is saved in a sqlite database in the table **logme** with the structure:
 
 *A hash of the row, not in use for the time being*

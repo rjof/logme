@@ -69,8 +69,6 @@ class MultiTimerIngest:
             # print(f'dst_history: {dst_history}')
             # print(f'file: {file}')
             move_file_in_local_system(src_landing, dst_history)
-        exit(2)
-
 
     def process(self) -> pd.DataFrame:
         """

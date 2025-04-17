@@ -2,6 +2,7 @@ from logme import SUCCESS, DB_READ_ERROR, DB_WRITE_ERROR, config
 import logme.storage.database as db
 from logme.storage.database import (DatabaseHandler, SQLiteResponse, DBResponse)
 import logging, typer
+from logme.utils import ProcessingUtils
 
 class Multi_TimerProcessor:
     """
@@ -11,7 +12,9 @@ class Multi_TimerProcessor:
     def __init__(self, files: list[str], conf: dict) -> None:
         self.files = files
         self.conf = conf
+        self.src = "Multi_Timer"
         self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger.info('Starting Multi_TimerProcessor')
         if config.CONFIG_FILE_PATH.exists():
             db_path = db.get_database_path(config.CONFIG_FILE_PATH)
         else:
@@ -27,48 +30,29 @@ class Multi_TimerProcessor:
             )
             raise typer.Exit(1)
         self._db_handler = db.DatabaseHandler(db_path)
-        if self._raw_table_exists() != SUCCESS:
-            raise typer.Exit("Missing raw table")
+        self._landing_to_raw()
+
+    def _landing_to_raw(self) -> int:
+        self.check_data_quality()
+        if ProcessingUtils._raw_table_exists(self.src) != True:
+            self.logger.info(f'Creating raw table {self.src}_raw')
+            query = ProcessingUtils._query_from_list_of_fields(self.src, "raw", self.conf["fields"])
+            if ProcessingUtils._create_table(query) != SUCCESS:
+                raise typer.Exit(f"Error creating {self.src}_raw")
+        for file in self.files:
+            print(f'file: {file}')
+            if ProcessingUtils._ingest_file_to_db(file, f'{self.src}_raw', self.conf) != SUCCESS:
+                self.logger.info(f'Error putting {file} to {self.src}_raw')
+            else:
+                self.logger.info(f'Loaded {file} to {self.src}_raw')
 
     def check_data_quality(self) -> int:
+        # If conf has header, check the names
+        if self.conf['header']:
+            if ProcessingUtils._are_headers_correct(self.files, self.conf):
+                self.logger.info(f'Headers are correct')
+            else:
+                self.logger.info("Wrong headers")
+    
         return SUCCESS
     
-    def _are_headers_correct(self) -> int:
-        return SUCCESS
-    
-    def _are_field_types_correct(self) -> int:
-        return SUCCESS
-    
-    def _raw_table_exists(self) -> int:
-        return DB_READ_ERROR
-    
-    def _insert_into_multi_timer_raw(self) -> SQLiteResponse:
-        try:
-            sqlite_db = f"sqlite:///{self._db_path}"
-            engine = create_engine(sqlite_db, echo=True)
-            with engine.connect() as  sqlite_connection:
-                try:
-                    sql_query = sql.text(
-                        """
-                        SELECT book.title AS activity,
-                        page_stat.page AS comment,
-                        page_stat.duration AS duration_sec,
-                        page_stat.start_time AS ts_from,
-                        (page_stat.start_time + page_stat.duration) AS ts_to
-                        FROM page_stat
-                        INNER JOIN book ON book.id = page_stat.id_book 
-                        ORDER BY start_time
-                        """)
-                    list_logme = sqlite_connection.execute(
-                        sql_query).fetchall()
-                    # @todo Put columnames in config?
-                    return SQLiteResponse(pd.DataFrame(
-                        list_logme,
-                        columns=['activity', 'comment',
-                                 'duration_sec', 'ts_from',
-                                 'ts_to']),
-                        SUCCESS)
-                except OSError:  # Catch file IO problems
-                    return DBResponse([], DB_READ_ERROR)
-        except OSError:  # Catch file IO problems
-            return SQLiteResponse(pd.DataFrame(), DB_READ_ERROR)
