@@ -14,11 +14,12 @@ if sys.version_info.major == 3 and sys.version_info.minor >= 10:
     setattr(collections, "MutableMapping", collections.abc.MutableMapping)
 else:
     from collections import MutableMapping
-
+from time import mktime
 __app_name__ = "logme"
 __version__ = "0.1.1"
 
 now = datetime.now()  # current date and time
+now_ts = int(mktime(now.timetuple()))
 date_time = now.strftime("%Y-%m-%d_%H-%M-%S")
 
 CONFIG_DIR_PATH = Path(typer.get_app_dir(__app_name__))

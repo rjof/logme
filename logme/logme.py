@@ -83,54 +83,6 @@ class Todoer:
         return CurrentLogme({}, write.error)
 
 
-# TODO: 
-#  Delete this version
-#  I prefer the match one
-def source_triggerIf(src: str = None) -> None:
-    logger.info(f"src: {src}")
-    conf = get_source_conf(src)
-    dst = Utils.get_local_storage_path(config.CONFIG_FILE_PATH)
-    if src == 'aTimeLogger':
-        logger.info('get aTimeLogger data')
-        if conf['connection'] == 'GoogleDrive':
-            downloader = GoogleDrive.GoogleDriveDownloader(src, dst)
-            tmp = downloader.download()            
-            exit(0)
-            return downloader.download(src, dst)
-        if conf['connection'] == 'api':
-            downloader = ATimeLoggerIngestor.ATimeLoggerApi(src, dst)
-            # Download json with aTimeLogger api
-            downloader.download()
-            # Process downloaded with pandas
-            processor = ATimeLoggerIngestor.get_ProcessATimeLoggerApi(dst)
-            result = processor.process(src,dst)
-    elif src == 'duolingo':
-        logger.info(f'Downloading {src}')
-        languages_processor = Duolingo.DuolingoApi(src, dst)
-        # downloader.process(skills)
-    elif src == 'koreaderStatistics':
-        logger.info('Process koreader statistic file')
-        if conf['connection'] == 'GoogleDrive':
-            downloader = GoogleDrive(src, dst)
-            # return downloader.download(src, dst)
-        if conf['connection'] == 'file_system':
-            processor = KoreaderStatistics(src, dst)
-            processor.process()
-    elif src == 'koreaderClipping':
-        logger.info('Process highlighted texts in Koreader')
-        processor = KoreaderClippingIngest(src, dst)
-        processor.pre_process()
-    elif src == 'instagram':
-        logger.info('Process instagram saved posts')
-        processor = Instagram.InstagramIngest(src, dst)
-        processor.instaloader_download(1)
-    elif src == "Multi_Timer":
-        logger.info('Process Multi Timer')
-        processor = Multi_TimerIngestor.MultiTimer(src, dst)
-        processor.move_from_landing()
-    else:
-        logger.info(f"{src} not yet implemented. Check TODO.md file for check the planning.")
-
 def source_trigger(src: str = None) -> None:
     logger.info(f"source_trigger src: {src}")
     dst_path = Path(u.get_local_storage_path(config.CONFIG_FILE_PATH)/"landing"/src/f"{date_time}")
@@ -180,6 +132,8 @@ def source_trigger(src: str = None) -> None:
                 # ingestor.move_to_history(files_downloaded)
                 files_moved = [f.replace("/landing/","/history/") for f in files_downloaded]
                 processor = Multi_TimerProcessor.Multi_TimerProcessor(files_moved, conf)
+                dfs = processor.landing_to_raw()
+                processor.raw_to_l1(dfs)
                 exit(2)
         case _:
             logger.info(f"{src} not yet implemented. Check TODO.md file for check the planning.")
