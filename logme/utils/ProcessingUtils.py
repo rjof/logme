@@ -1,4 +1,4 @@
-import pandas as pd
+import pandas as pd, re
 from sqlalchemy import (create_engine, MetaData, Table,Column, Integer, String, sql)
 from pathlib import Path
 import shutil
@@ -37,7 +37,7 @@ def _are_headers_correct(files, conf) -> bool:
             if _is_csv(conf):
                 reader = csv.reader(f)
                 header = next(reader)
-                if header == conf["fields"].split(conf["sep"]):
+                if header == conf["fields"]:
                     correct_headers = True
                 else:
                     correct_headers = False
@@ -76,7 +76,7 @@ def _create_table(sql_query: str) -> int:
 
 def _query_from_list_of_fields(src: str, type: str, fields: list[str]) -> str:
     query = f"Table('{src}_{type}', meta,\n"
-    for field in fields.split(','):
+    for field in fields:
         query += f"  Column('{field}', String),\n"
     query += "  Column('src_file', String, primary_key = True),\n"
     query += "  Column('ingest_timestamp', String, primary_key = True),\n"
@@ -100,3 +100,54 @@ def _ingest_file_to_db(file:str, table: str, conf: dict) -> pd.DataFrame:
 def _add_hash(df: pd.DataFrame) -> pd.DataFrame:
     df['hash'] = pd.util.hash_pandas_object(df).apply(str)
     return df
+
+def _raw_to_l1_types(df: pd.DataFrame, conf: dict, confTransformations: dict) -> pd.DataFrame:
+
+    for field in conf['fields']:
+        field_index = conf['fields'].index(field)
+        match(conf['fields_type'][field_index]):
+            case "int":
+                df = _col_to_int(field_index, df)
+            case "datetime":
+                df = _col_to_datetime(field_index, conf['fields_format'][field_index], df)
+            case "str":
+                index = conf['fields_type'].index("str")
+            case "time":
+                df = _time_to_seconds(field_index, conf['fields_format'][field_index], df)
+            case _:
+                raise Exception("Data type not yet implemented")
+    for col in confTransformations.keys():
+        print(f'col: {col} confT: {confTransformations[col]}')
+        try:
+            df = df.rename(columns={col : confTransformations[col]})
+        except:
+            logger.info(f'Column {col} not in raw df')
+    df = df[confTransformations.values()]
+    df = _add_hash(df)
+    return df
+
+def _col_to_int(idx: int, df: pd.DataFrame) -> pd.DataFrame:
+    df.iloc[:,[idx]] =  df.iloc[:,[idx]].astype("int")
+    return df
+
+def _col_to_datetime(idx: int, format: str, df: pd.DataFrame) -> pd.DataFrame:
+    this_col = df.iloc[:,idx]
+    new_date = pd.to_datetime(this_col, format=format).dt.tz_localize('America/Mexico_City')
+    df.iloc[:,[idx]] = new_date.map(pd.Timestamp.timestamp)
+    return df
+
+def _time_to_seconds(idx: int, format: str, df: pd.DataFrame):
+    to_remove = re.findall(r'\[(.*)\]', format)
+    hms = format.split(":")
+    this_col = df.iloc[:,idx]
+    for char in to_remove:
+        this_col = this_col.map(lambda x: x.strip(char))
+    if len(hms) == 3: # contains h, m & s
+        format = '%H:%M:%S'
+    elif len(hms) == 2: # contains m & s
+        format = '%M:%S'
+    as_date = pd.to_datetime(this_col, format = format)
+    secs = as_date.dt.hour * 3600 + as_date.dt.minute * 60 + as_date.dt.second
+    df.iloc[:, idx] = secs
+    return df
+

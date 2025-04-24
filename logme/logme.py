@@ -86,7 +86,8 @@ class Todoer:
 def source_trigger(src: str = None) -> None:
     logger.info(f"source_trigger src: {src}")
     dst_path = Path(u.get_local_storage_path(config.CONFIG_FILE_PATH)/"landing"/src/f"{date_time}")
-    conf = u.get_source_conf(src)
+    conf = u.get_source_conf(src, src)
+    conf_raw_to_l1 = u.get_source_conf(src, f'{src}_raw_to_l1')
     match(src):
         case 'aTimeLogger':
             logger.info('get aTimeLogger data')
@@ -125,15 +126,18 @@ def source_trigger(src: str = None) -> None:
         case "Multi_Timer":
             logger.info('Process Multi_Timer')
             ingestor = Multi_TimerIngestor.MultiTimerIngest(src, dst_path, conf)
-            # files_downloaded = ingestor.ingest_to_landing()
-            files_downloaded = ['/home/rjof/logme_data/landing/Multi_Timer/2025-04-17_17-44-10/timer_history_2025_04_06.csv']
+            files_downloaded = ingestor.ingest_to_landing()
+            # files_downloaded = ['/home/rjof/logme_data/landing/Multi_Timer/2025-04-17_17-44-10/timer_history_2025_04_06.csv']
             logger.info(f'Files downloaded: {files_downloaded}')
             if files_downloaded:
-                # ingestor.move_to_history(files_downloaded)
+                ingestor.move_to_history(files_downloaded)
                 files_moved = [f.replace("/landing/","/history/") for f in files_downloaded]
-                processor = Multi_TimerProcessor.Multi_TimerProcessor(files_moved, conf)
+                processor = Multi_TimerProcessor.Multi_TimerProcessor(files_moved, conf, conf_raw_to_l1)
                 dfs = processor.landing_to_raw()
-                processor.raw_to_l1(dfs)
+                dfs = processor.raw_to_l1(dfs)
+                # TODO:
+                # l1_to_l2
+                # Process the analytics
                 exit(2)
         case _:
             logger.info(f"{src} not yet implemented. Check TODO.md file for check the planning.")

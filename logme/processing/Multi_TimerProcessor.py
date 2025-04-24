@@ -5,15 +5,17 @@ import logme.storage.database as db
 from logme.storage.database import (DatabaseHandler, SQLiteResponse, DBResponse)
 import logging, typer, pandas as pd
 from logme.utils import ProcessingUtils
+import json
 
 class Multi_TimerProcessor:
     """
     Class to process Multi Timer data
     """
 
-    def __init__(self, files: list[str], conf: dict) -> None:
+    def __init__(self, files: list[str], conf: dict, confTransformations: dict) -> None:
         self.files = files
         self.conf = conf
+        self.confTransformations = confTransformations
         self.src = "Multi_Timer"
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logger.info('Starting Multi_TimerProcessor')
@@ -54,28 +56,18 @@ class Multi_TimerProcessor:
                 self.logger.info("Wrong headers")
         return SUCCESS
     
-    def raw_to_l1(self, dfs: list[pd.DataFrame]) -> int:
+    def raw_to_l1(self, dfs: list[pd.DataFrame]) -> pd.DataFrame:
+        dfs_casted = []
         for df in dfs:
-            print(df)
             print(df.info())
+            # print(df[cols_raw[5]])
             if ProcessingUtils._table_exists(f'{self.src}_l1') != True:
                 self.logger.info(f'Creating l1 table {self.src}_l1')
                 ddl_file = impresources.files(logme.storage) / f'{self.src}_l1.sql'
                 query = open(ddl_file, "rt").read().format(name=self.src)
                 if ProcessingUtils._create_table(query) != SUCCESS:
                     raise typer.Exit(f"Error creating {self.src}_l1")
-            # Basic processes
-            # 1. ts:
-            #   From "Nov 10, 2023 12:46:26 AM" (conf['date_format']=%%b %%-d, %%Y %%-H:%%M:%%S)
-            #   To unixtimestamp
-            # 2. elapsed_sec:
-            #   From [+]%%M:%%S
-            #   To integer seconds... what [+] means?
-            # 3. duration
-            #   From %%M:%%S
-            #   To integer seconds
-            # 4. Add hash
-            # 5. process_ts fill with now_ts
-
-        return DB_READ_ERROR
+            df_casted = ProcessingUtils._raw_to_l1_types(df,self.conf, self.confTransformations)
+            dfs_casted.append(self._db_handler.df_to_db(df_casted,f'{self.src}_l1'))
+        return dfs_casted
     

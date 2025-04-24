@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Dict, List, NamedTuple
 
 import pandas as pd
-from sqlalchemy import (create_engine, MetaData, Table,Column, Integer, String, sql)
+from sqlalchemy import (inspect, create_engine, MetaData, Table,Column, Integer, String, sql)
 from logme import (DB_READ_ERROR, DB_WRITE_ERROR, JSON_ERROR,SUCCESS)
 
 DEFAULT_DB_FILE_PATH = Path.home().joinpath(
@@ -61,6 +61,20 @@ class DatabaseHandler:
     def __init__(self, db_path: Path) -> None:
         self._db_path = db_path
 
+    def _list_columns(self,table: str) -> list:
+        """
+        List the columns of a table
+        """
+        print(f'table: {table}')
+        try:
+            sqlite_db = f"sqlite:///{self._db_path}"
+            engine = create_engine(sqlite_db, echo=True)
+            inspection = inspect(engine)
+            columns_table = inspection.get_columns(table)
+            return [ c['name'] for c in columns_table ]
+        except OSError:  # Catch file IO problems
+                    return [DB_READ_ERROR]
+        
     def _list_tables(self) -> SQLiteResponse:
         """
         List all the tables in the database

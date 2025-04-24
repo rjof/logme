@@ -2,7 +2,9 @@
 Create Muti_Timer_l1:
  - Use the fields & field_type from the source conf in config.ini
  - Make the convertions and validations
- 
+
+ processing/Multi_TimerProcessor.py
+
 # Reformat all sources based in Multi_Timer source
 # Lots of fails in new installation
 

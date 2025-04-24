@@ -4,8 +4,9 @@ import logging
 import os
 import configparser
 import sys
-from logme import CONFIG_FILE_PATH, history_path
+from logme import CONFIG_FILE_PATH, history_path, CONFIG_DIR_PATH
 from filecmp import cmp
+import re, json
 
 logger = logging.getLogger('Utils')
 
@@ -40,17 +41,29 @@ def get_local_storage_path(config_file: Path) -> Path:
     return Path(config_parser["LocalPaths"]["storage"])
 
 
-def get_source_conf(src: str = None) -> dict:
+def get_source_conf(src: str = None, section: str = None) -> dict:
     config_parser = configparser.ConfigParser()
-    config_parser.read(CONFIG_FILE_PATH)
-    options = [option for option in config_parser[src]]
+    config_parser.optionxform=str
+    file = CONFIG_DIR_PATH / f'{src}.ini'
+    config_parser.read(file)
+    # options = [option for option in config_parser[section]]
+    thedict0 = {}
+    for key, val in config_parser.items(section):
+        if key == 'days_to_retrieve_api':
+            thedict0[key] = float(val)
+        else:
+            thedict0[key] = val
     thedict = {}
-    for option in options:
-        for key, val in config_parser.items(src):
-            if key == 'days_to_retrieve_api':
-                thedict[key] = float(val)
-            else:
-                thedict[key] = val
+    for key, value in thedict0.items():
+        if key == 'fields':
+            thedict[key] = [ f.strip() for f in value.split(",") ]
+        elif key == 'fields_type':
+            thedict[key] = [ f.strip() for f in value.split(",") ]
+        elif key == 'fields_format':
+            thedict[key] = re.findall(r'"([^"]*)"', value)
+        else:
+            thedict[key] = value
+    logger.info(f'Configuration of source {src}.ini: [{section}]:\n{json.dumps(thedict, indent=4)}')
     return thedict
 
 def str_to_class(classname):
@@ -69,3 +82,16 @@ def isFileInHistory(file_name: str, src_type: str, sub_folder: str = '') -> bool
     else:
         logger.info(f'File {file_name} not found in {dirpath}')
         return False
+    
+def get_src_conf(config_file: Path) -> Path:
+    """Return the configparser object of the source to ingest & process."""
+    config_parser = configparser.ConfigParser()
+    return config_parser.read(config_file)
+
+    if not config.CONFIG_FILE_PATH.exists():
+        typer.secho(
+            'Config file not found.',
+            fg=typer.colors.RED,
+        )
+        raise typer.Exit(1)
+
