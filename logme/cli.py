@@ -33,8 +33,8 @@ def init(
             fg=typer.colors.RED,
         )
         raise typer.Exit(1)
-    dst = get_local_storage_path(config.CONFIG_FILE_PATH)
-    db_init_error = database.init_database(Path(db_path))
+    dst = u.get_local_storage_path(config.CONFIG_FILE_PATH)
+    db_init_error = db.init_database(Path(db_path))
     if db_init_error:
         typer.secho(
             f'Creating database failed with '

@@ -1,25 +1,15 @@
 [General]
-database = /home/rjof/logme_data/.rjof_logme.db
+base_path = /home/rjof/logme_data 
+database = ${base_path}/.rjof_logme.db
 
 [LocalPaths]
-storage = /home/rjof/logme_data
-
-[LogsPath]
-logs_path = /home/rjof/logme_data/logs
+storage = ${General:base_path}
+logs_path = ${General:base_path}/logs
+landing_path = ${General:base_path}/landing
+history_path = ${General:base_path}/history
 
 [Sources]
 src = aTimeLogger,duolingo,koreaderStatistics,koreaderClipping,pomodoro,podcast_adict,multi_timer,tap_log,loop_habits,instagram,Multi_Timer
-
-[Multi_Timer]
-connection = GoogleDrive
-format = csv
-sep = ,
-header = true
-# 384, "Nov 10, 2023 12:46:26 AM", "pausa",         ,Start,      00:00,  00:15
-# 595, "Dec 23, 2023 9:08:19 PM",  "muñecas", 2 of 2,Stop Alarm, +00:09, 00:30
-date_format = %%b %%-d, %%Y %%-H:%%M:%%S
-fields = No,Time,Name,Repeat,Action,Elapsed time,Duration
-field_type = int, datetime, str, str, str, , [+]%%M:%%S, %%M:%%S
 
 [aTimeLogger]
 connection = GoogleDrive

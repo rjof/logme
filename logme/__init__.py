@@ -1,7 +1,7 @@
 """Top-level package for logme."""
 
 from os import path, environ, mkdir
-import sys
+import sys, shutil
 import collections
 from pathlib import Path
 import configparser
@@ -15,6 +15,8 @@ if sys.version_info.major == 3 and sys.version_info.minor >= 10:
 else:
     from collections import MutableMapping
 from time import mktime
+#from logme import config
+from importlib import resources
 __app_name__ = "logme"
 __version__ = "0.1.1"
 
@@ -24,6 +26,11 @@ date_time = now.strftime("%Y-%m-%d_%H-%M-%S")
 
 CONFIG_DIR_PATH = Path(typer.get_app_dir(__app_name__))
 CONFIG_FILE_PATH = CONFIG_DIR_PATH / "config.ini"
+config_resource_file = resource_path = path.join(path.split(__file__)[0], "resources")
+config_file = Path(config_resource_file) / "config.ini.example"
+
+if path.isfile(CONFIG_FILE_PATH) == False:
+    shutil.copy(config_file, CONFIG_FILE_PATH)
 
 (
     SUCCESS,
@@ -65,14 +72,15 @@ creds_dict = {
     "dropbox_refresh_token": environ.get('dropbox_refresh_token')
 }
 
-config_parser = configparser.ConfigParser()
+config_parser = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
+config_parser.optionxform=str
 try:
     config_parser.read(CONFIG_FILE_PATH)
+    base_path = config_parser.get("General", "base_path")
     DATA_PATH = config_parser.get("LocalPaths","storage")
     logs_path = config_parser.get("LocalPaths","logs_path")
     landing_path = config_parser.get("LocalPaths","landing_path")
     history_path = config_parser.get("LocalPaths","history_path")
-
     sourcesList = config_parser.get("Sources", "src").split(",")
     duolingo_languages = config_parser.get("duolingo", "languages").split(",")
     duolingo_end_points = config_parser.get("duolingo", "end_points").split(",")
@@ -84,10 +92,9 @@ except:
     FILE_ERROR
 
 logger = logging.getLogger(__app_name__)
-logger_path = f'{logs_path}'
-if not path.exists(logger_path):
-    mkdir(logger_path)
-logger_file = f'{logger_path}/{date_time}.log'
+if not path.exists(logs_path):
+    mkdir(logs_path)
+logger_file = f'{logs_path}/{date_time}.log'
 logging.basicConfig(format='%(asctime)s [%(levelname)s] [%(name)s] %(message)s',
                     filename=logger_file,
                     encoding='utf-8', 

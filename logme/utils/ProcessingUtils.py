@@ -27,6 +27,7 @@ if not db_path.exists():
         'Database not found. Please, run "logme init"',
         fg=typer.colors.RED,
     )
+    print(f'db_path: {db_path}')
     raise typer.Exit(1)
 _db_handler = db.DatabaseHandler(db_path)
 

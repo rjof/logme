@@ -126,19 +126,17 @@ def source_trigger(src: str = None) -> None:
         case "Multi_Timer":
             logger.info('Process Multi_Timer')
             ingestor = Multi_TimerIngestor.MultiTimerIngest(src, dst_path, conf)
-            files_downloaded = ingestor.ingest_to_landing()
-            # files_downloaded = ['/home/rjof/logme_data/landing/Multi_Timer/2025-04-17_17-44-10/timer_history_2025_04_06.csv']
+            # files_downloaded = ingestor.ingest_to_landing()
+            files_downloaded = ['/home/rjof/logme_data/history/Multi_Timer/2025-04-17_17-44-10/timer_history_2025_04_06.csv']
+            files_downloaded = u.remove_already_processed(files_downloaded)
             logger.info(f'Files downloaded: {files_downloaded}')
             if files_downloaded:
-                ingestor.move_to_history(files_downloaded)
+                #ingestor.move_to_history(files_downloaded)
                 files_moved = [f.replace("/landing/","/history/") for f in files_downloaded]
-                processor = Multi_TimerProcessor.Multi_TimerProcessor(files_moved, conf, conf_raw_to_l1)
+                processor = Multi_TimerProcessor.Multi_TimerProcessor(files_moved)
                 dfs = processor.landing_to_raw()
                 dfs = processor.raw_to_l1(dfs)
-                # TODO:
-                # l1_to_l2
-                # Process the analytics
-                exit(2)
+                dfs = processor.l1_to_l2(dfs)
         case _:
             logger.info(f"{src} not yet implemented. Check TODO.md file for check the planning.")
 

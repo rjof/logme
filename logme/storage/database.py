@@ -8,7 +8,7 @@ from typing import Any, Dict, List, NamedTuple
 import pandas as pd
 from sqlalchemy import (inspect, create_engine, MetaData, Table,Column, Integer, String, sql)
 from logme import (DB_READ_ERROR, DB_WRITE_ERROR, JSON_ERROR,SUCCESS)
-
+from os import path
 DEFAULT_DB_FILE_PATH = Path.home().joinpath(
     "." + Path.home().stem + "_logme.db"
 )
@@ -16,20 +16,23 @@ DEFAULT_DB_FILE_PATH = Path.home().joinpath(
 
 def get_database_path(config_file: Path) -> Path:
     """Return the local storage of collected files."""
-    config_parser = configparser.ConfigParser()
+    config_parser = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
+    config_parser.optionxform=str
     config_parser.read(config_file)
     return Path(config_parser["General"]["database"])
 
 
 def init_database(db_path: Path) -> int:
     """Create the logme database."""
+    if path.isfile(db_path):
+        return SUCCESS
     try:
         sqlite_db = f"sqlite:///{db_path}"
         engine = create_engine(sqlite_db, echo=True)
         # sqlite_connection = engine.connect()
         meta = MetaData()
         logme = Table('logme', meta,
-                      Column('hash',         String, primary_key = True),
+
                       Column('in_group',     String),
                       Column('activity',     String),
                       Column('comment',      String),
@@ -37,10 +40,10 @@ def init_database(db_path: Path) -> int:
                       Column('ts_from',      Integer),
                       Column('ts_to',        Integer),
                       Column('src',          String),
-                      Column('ts_added',     Integer)
+                      Column('ts_added',     Integer),
+                      Column('hash',         String, primary_key = True)
                       )
         meta.create_all(engine)
-        #db_path.write_text("[]")  # Empty to-do list
         return SUCCESS
     except OSError:
         return DB_WRITE_ERROR

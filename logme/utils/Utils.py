@@ -36,13 +36,14 @@ def move_file_in_local_system(src_file: Path, dst_file: Path):
 
 def get_local_storage_path(config_file: Path) -> Path:
     """Return the local path to the downloaded files."""
-    config_parser = configparser.ConfigParser()
+    config_parser = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
+    config_parser.optionxform=str
     config_parser.read(config_file)
     return Path(config_parser["LocalPaths"]["storage"])
 
 
 def get_source_conf(src: str = None, section: str = None) -> dict:
-    config_parser = configparser.ConfigParser()
+    config_parser = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
     config_parser.optionxform=str
     file = CONFIG_DIR_PATH / f'{src}.ini'
     config_parser.read(file)
@@ -70,7 +71,7 @@ def str_to_class(classname):
     return getattr(sys.modules[__name__], classname)
 
 def areFilesEqual(path_file1: Path, path_file2) -> bool:
-    cmp(path_file1,path_file2, shallow=true)
+    cmp(path_file1,path_file2, shallow=True)
 
 def isFileInHistory(file_name: str, src_type: str, sub_folder: str = '') -> bool:
     path = Path(f'{history_path}/{sub_folder}/{src_type}')
@@ -85,7 +86,8 @@ def isFileInHistory(file_name: str, src_type: str, sub_folder: str = '') -> bool
     
 def get_src_conf(config_file: Path) -> Path:
     """Return the configparser object of the source to ingest & process."""
-    config_parser = configparser.ConfigParser()
+    config_parser = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
+    config_parser.optionxform=str
     return config_parser.read(config_file)
 
     if not config.CONFIG_FILE_PATH.exists():
@@ -95,3 +97,15 @@ def get_src_conf(config_file: Path) -> Path:
         )
         raise typer.Exit(1)
 
+def remove_already_processed(files: list[str]) -> list[str]:
+    import glob
+    import os
+
+    for file in files:
+        print(f'###\n{file}';exit(0))
+        list_of_files = glob.glob(file) # * means all if need specific format then *.csv
+        latest_file = max(list_of_files, key=os.path.getctime)
+        print(latest_file)
+        print(files)
+    exit(2)
+    return list[]
