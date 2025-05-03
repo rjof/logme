@@ -127,11 +127,12 @@ def source_trigger(src: str = None) -> None:
             logger.info('Process Multi_Timer')
             ingestor = Multi_TimerIngestor.MultiTimerIngest(src, dst_path, conf)
             # files_downloaded = ingestor.ingest_to_landing()
-            files_downloaded = ['/home/rjof/logme_data/history/Multi_Timer/2025-04-17_17-44-10/timer_history_2025_04_06.csv']
-            files_downloaded = u.remove_already_processed(files_downloaded)
+            files_downloaded = ['/home/rjof/logme_data/landing/Multi_Timer/2025-04-24_00-50-00/timer_history_2025_04_24.csv']
             logger.info(f'Files downloaded: {files_downloaded}')
+            # files_downloaded = u.remove_already_processed(src, files_downloaded)
+            # logger.info(f'Files downloaded removing processed: {files_downloaded}')
             if files_downloaded:
-                #ingestor.move_to_history(files_downloaded)
+                ingestor.move_to_history(files_downloaded)
                 files_moved = [f.replace("/landing/","/history/") for f in files_downloaded]
                 processor = Multi_TimerProcessor.Multi_TimerProcessor(files_moved)
                 dfs = processor.landing_to_raw()

@@ -1,12 +1,7 @@
 from pathlib import Path
-import shutil
-import logging
-import os
-import configparser
-import sys
-from logme import CONFIG_FILE_PATH, history_path, CONFIG_DIR_PATH
+from logme import CONFIG_FILE_PATH, history_path, CONFIG_DIR_PATH, base_path
 from filecmp import cmp
-import re, json
+import re, json, glob, os, logging, configparser,sys, shutil
 
 logger = logging.getLogger('Utils')
 
@@ -71,7 +66,7 @@ def str_to_class(classname):
     return getattr(sys.modules[__name__], classname)
 
 def areFilesEqual(path_file1: Path, path_file2) -> bool:
-    cmp(path_file1,path_file2, shallow=True)
+    return cmp(path_file1,path_file2, shallow=True)
 
 def isFileInHistory(file_name: str, src_type: str, sub_folder: str = '') -> bool:
     path = Path(f'{history_path}/{sub_folder}/{src_type}')
@@ -97,15 +92,18 @@ def get_src_conf(config_file: Path) -> Path:
         )
         raise typer.Exit(1)
 
-def remove_already_processed(files: list[str]) -> list[str]:
-    import glob
-    import os
-
+def remove_already_processed(src: str, files: list[str]) -> list[str]:
+    # TODO: Will all sources match this pattern?
+    path_history = f'{history_path}/{src}/*/*'
     for file in files:
-        print(f'###\n{file}';exit(0))
-        list_of_files = glob.glob(file) # * means all if need specific format then *.csv
+        list_of_files = glob.glob(path_history, recursive=True) # * means all if need specific format then *.csv
         latest_file = max(list_of_files, key=os.path.getctime)
-        print(latest_file)
-        print(files)
-    exit(2)
-    return list[]
+        print(f'file 1: {file}')
+        print(f'file 2: {latest_file}')
+        print(cmp(file, latest_file))
+        if areFilesEqual(file, latest_file):
+            logger.info(f'File {file} exist in history as {latest_file}')
+            logger.info(f'Deleting file {file} from landing')
+            os.remove(file)
+            files.remove(file)
+    return files

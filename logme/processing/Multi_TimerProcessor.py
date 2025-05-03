@@ -60,15 +60,15 @@ class Multi_TimerProcessor:
     
     def raw_to_l1(self, dfs: list[pd.DataFrame]) -> list[pd.DataFrame]:
         dfs_casted = []
+        if ProcessingUtils._table_exists(f'{self.src}_l1') != True:
+            self.logger.info(f'Creating l1 table {self.src}_l1')
+            ddl_file = impresources.files(logme.storage) / f'{self.src}_l1.sql'
+            query = open(ddl_file, "rt").read().format(name=self.src)
+            if ProcessingUtils._create_table(query) != SUCCESS:
+                raise typer.Exit(f"Error creating {self.src}_l1")
         for df in dfs:
             print(df.info())
             # print(df[cols_raw[5]])
-            if ProcessingUtils._table_exists(f'{self.src}_l1') != True:
-                self.logger.info(f'Creating l1 table {self.src}_l1')
-                ddl_file = impresources.files(logme.storage) / f'{self.src}_l1.sql'
-                query = open(ddl_file, "rt").read().format(name=self.src)
-                if ProcessingUtils._create_table(query) != SUCCESS:
-                    raise typer.Exit(f"Error creating {self.src}_l1")
             df_casted = ProcessingUtils._raw_to_l1_types(df,self.conf, self.conf_raw_to_l1)
             self._db_handler.df_to_db(df_casted,f'{self.src}_l1')
             dfs_casted.append(df_casted)
@@ -76,6 +76,12 @@ class Multi_TimerProcessor:
     
     def l1_to_l2(self, dfs: list[pd.DataFrame]) -> list[pd.DataFrame]:
         dfs_out = []
+        if ProcessingUtils._table_exists(f'{self.src}_l2') != True:
+            self.logger.info(f'Creating l2 table {self.src}_l2')
+            ddl_file = impresources.files(logme.storage) / f'{self.src}_l2.sql'
+            query = open(ddl_file, "rt").read().format(name=self.src)
+            if ProcessingUtils._create_table(query) != SUCCESS:
+                raise typer.Exit(f"Error creating {self.src}_l1")
         for df in dfs:
             names = set(df['name'].tolist())
             actions = set(df['action'].tolist())
