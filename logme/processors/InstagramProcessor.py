@@ -1,0 +1,4 @@
+class InstagramProcess:
+    pass
+
+

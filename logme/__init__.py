@@ -15,7 +15,6 @@ if sys.version_info.major == 3 and sys.version_info.minor >= 10:
 else:
     from collections import MutableMapping
 from time import mktime
-#from logme import config
 from importlib import resources
 __app_name__ = "logme"
 __version__ = "0.1.1"
@@ -84,10 +83,10 @@ try:
     sourcesList = config_parser.get("Sources", "src").split(",")
     duolingo_languages = config_parser.get("duolingo", "languages").split(",")
     duolingo_end_points = config_parser.get("duolingo", "end_points").split(",")
-    instagram_tmpdir = config_parser.get("instagram", "tmpdir")
-    instagram_external_hdd = config_parser.get("instagram","external_hdd")
-    instagram_cookiefile = config_parser.get("instagram", "cookiefile")
-    instagram_sessionfile = config_parser.get("instagram","sessionfile")
+    # instagram_tmpdir = config_parser.get("instagram", "tmpdir")
+    # instagram_external_hdd = config_parser.get("instagram","external_hdd")
+    # instagram_cookiefile = config_parser.get("instagram", "cookiefile")
+    # instagram_sessionfile = config_parser.get("instagram","sessionfile")
 except:
     FILE_ERROR
 

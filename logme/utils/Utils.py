@@ -1,3 +1,4 @@
+import configparser
 from pathlib import Path
 from logme import CONFIG_FILE_PATH, history_path, CONFIG_DIR_PATH, base_path
 from filecmp import cmp
@@ -62,11 +63,14 @@ def get_source_conf(src: str = None, section: str = None) -> dict:
     logger.info(f'Configuration of source {src}.ini: [{section}]:\n{json.dumps(thedict, indent=4)}')
     return thedict
 
+
 def str_to_class(classname):
     return getattr(sys.modules[__name__], classname)
 
+
 def areFilesEqual(path_file1: Path, path_file2) -> bool:
     return cmp(path_file1,path_file2, shallow=True)
+
 
 def isFileInHistory(file_name: str, src_type: str, sub_folder: str = '') -> bool:
     path = Path(f'{history_path}/{sub_folder}/{src_type}')
@@ -78,7 +82,8 @@ def isFileInHistory(file_name: str, src_type: str, sub_folder: str = '') -> bool
     else:
         logger.info(f'File {file_name} not found in {dirpath}')
         return False
-    
+
+
 def get_src_conf(config_file: Path) -> Path:
     """Return the configparser object of the source to ingest & process."""
     config_parser = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
@@ -91,6 +96,7 @@ def get_src_conf(config_file: Path) -> Path:
             fg=typer.colors.RED,
         )
         raise typer.Exit(1)
+
 
 def remove_already_processed(src: str, files: list[str]) -> list[str]:
     # TODO: Will all sources match this pattern?
@@ -107,3 +113,11 @@ def remove_already_processed(src: str, files: list[str]) -> list[str]:
             os.remove(file)
             files.remove(file)
     return files
+
+def get_database_path(config_file: Path) -> Path:
+    """Return the local storage of collected files."""
+    config_parser = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
+    config_parser.optionxform = str
+    config_parser.read(config_file)
+    return Path(config_parser["General"]["database"])
+

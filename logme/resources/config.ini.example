@@ -36,12 +36,6 @@ connection = file_system
 src_file = /home/rjof/Documents/koreader_rayen/clipboard/KOReaderClipping.txt
 format = text
 
-[instagram]
-tmpdir = /home/rjof/instagramSavedTmp
-external_hdd = /media/rjof/toshiba/rjof/instagram/instaloader/saved/
-cookiefile = /home/rjof/snap/firefox/common/.mozilla/firefox/ycxcs1wp.default/cookies.sqlite
-sessionfile = /home/rjof/.config/instaloader/session-errejotaoefe
-
 [pomodoro]
 connection = GoogleDrive
 format = csv

@@ -6,16 +6,18 @@ import logging
 import os
 import configparser
 import sys
-from logme import CONFIG_FILE_PATH, now_ts
-import logme.storage.database as db
 from filecmp import cmp
-from logme import SUCCESS, DB_READ_ERROR, DB_WRITE_ERROR, config
 import json, csv, typer
-
+from logme import CONFIG_FILE_PATH, now_ts
+from logme.utils.Utils import get_database_path
+from logme import SUCCESS, DB_READ_ERROR, DB_WRITE_ERROR, config
+from logme.storage.database import DatabaseHandler
+from logme.utils.Utils import get_database_path
 logger = logging.getLogger('ProcessingUtils')
 
+
 if config.CONFIG_FILE_PATH.exists():
-    db_path = db.get_database_path(config.CONFIG_FILE_PATH)
+    db_path = get_database_path(config.CONFIG_FILE_PATH)
 else:
     typer.secho(
         'Config file not found. Please, run "logme init"',
@@ -29,7 +31,9 @@ if not db_path.exists():
     )
     print(f'db_path: {db_path}')
     raise typer.Exit(1)
-_db_handler = db.DatabaseHandler(db_path)
+_db_handler = DatabaseHandler(db_path)
+
+db = DatabaseHandler(db_path)
 
 def _are_headers_correct(files, conf) -> bool:
     correct_headers = False
@@ -49,6 +53,8 @@ def _are_headers_correct(files, conf) -> bool:
 def _are_field_types_correct() -> int:
     return SUCCESS
 
+# TODO:
+# Move to database.py
 def _table_exists(table_name: str) -> bool:
     exists = False
     df, err = _db_handler._list_tables()
@@ -60,6 +66,8 @@ def _table_exists(table_name: str) -> bool:
     else:
         return False
     
+# TODO:
+# Move to database.py
 def _create_table(sql_query: str) -> int:
     logger.info(f'Creating table: {sql_query}')
     try:
@@ -75,12 +83,13 @@ def _create_table(sql_query: str) -> int:
         
     return True
 
-def _query_from_list_of_fields(src: str, type: str, fields: list[str]) -> str:
+def _query_from_list_of_fields(src: str, type: str, fields: list[str], types: list[str]) -> str:
+
     query = f"Table('{src}_{type}', meta,\n"
-    for field in fields:
-        query += f"  Column('{field}', String),\n"
-    query += "  Column('src_file', String, primary_key = True),\n"
-    query += "  Column('ingest_timestamp', String, primary_key = True),\n"
+    for field, type in zip(fields, types):
+        query += f"  Column('{field}', {type}),\n"
+    query += "  Column('src_file', String),\n"
+    query += "  Column('ingest_timestamp', Integer),\n"
     query += "  Column('hash', String, primary_key = True),\n"
     query += ')'
     return query

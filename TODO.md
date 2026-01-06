@@ -1,3 +1,10 @@
+# Add whatsapp chat history
+Dropbox location Apps/logme_rjof/WhatsApp
+It's a zip which includes the name "Chat de WhatsApp con <person_name>.txt"
+
+## Goal
+How long it takes an answer
+
 # working in processing Multi_Timer
 Create Muti_Timer_l1:
  - Use the fields & field_type from the source conf in config.ini

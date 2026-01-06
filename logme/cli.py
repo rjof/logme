@@ -1,83 +1,56 @@
 """This module provides the logme CLI."""
-import posixpath
-from os import makedirs, path
+
+from os import makedirs
 from pathlib import Path
 from typing import List, Optional
 import typer
-from logme import (ERRORS, __app_name__, __version__,
-                   config, logme, sourcesList)
+from logme import ERRORS, __app_name__, __version__, config, sourcesList
 from logme.logme import source_trigger
-import logme.storage.database as db
-# from logme.utils.Utils import get_local_storage_path
+from logme.storage.database import DEFAULT_DB_FILE_PATH
 import logme.utils.Utils as u
-from .logme import Todoer
+
 app = typer.Typer()
-
-
 
 @app.command()
 def init(
-        db_path: str = typer.Option(
-            str(db.DEFAULT_DB_FILE_PATH),
-            "--db-path",
-            "-db",
-            prompt="logme database location?",
-        ),
+    db_path: str = typer.Option(
+        str(DEFAULT_DB_FILE_PATH),
+        "--db-path",
+        "-db",
+        prompt="logme database location?",
+    ),
 ) -> None:
     """Initialize the logme database."""
     app_init_error = config.init_app(db_path)
     if app_init_error:
         typer.secho(
-            f'Creating config file failed with '
-            f'"{ERRORS[app_init_error]}"',
+            f"Creating config file failed with " f'"{ERRORS[app_init_error]}"',
             fg=typer.colors.RED,
         )
         raise typer.Exit(1)
     dst = u.get_local_storage_path(config.CONFIG_FILE_PATH)
-    db_init_error = db.init_database(Path(db_path))
+    db_init_error = logme.storage.database.DatabaseHandler.init_database(Path(db_path))
     if db_init_error:
         typer.secho(
-            f'Creating database failed with '
-            f'"{ERRORS[db_init_error]}"',
+            f"Creating database failed with " f'"{ERRORS[db_init_error]}"',
             fg=typer.colors.RED,
         )
         raise typer.Exit(1)
     else:
-        typer.secho(f"The logme database is "
-                    f"{db_path}", fg=typer.colors.GREEN)
-
-
-def get_todoer() -> Todoer:
-    if config.CONFIG_FILE_PATH.exists():
-        db_path = database.get_database_path(config.CONFIG_FILE_PATH)
-    else:
-        typer.secho(
-            'Config file not found. Please, run "logme init"',
-            fg=typer.colors.RED,
-        )
-        raise typer.Exit(1)
-    if db_path.exists():
-        return logme.Todoer(db_path)
-    else:
-        typer.secho(
-            'Database not found. Please, run "logme init"',
-            fg=typer.colors.RED,
-        )
-        raise typer.Exit(1)
+        typer.secho(f"The logme database is " f"{db_path}", fg=typer.colors.GREEN)
 
 
 @app.command(name="source")
-def process_src(src: str =
-                typer.Argument(
-                    default='',
-                    help=f"Chose one of the implemented sources:\n"
-                         f"{sourcesList}"
-                               )) -> int:
+def process_src(
+    src: str = typer.Argument(
+        default="", help=f"Chose one of the implemented sources:\n" f"{sourcesList}"
+    )
+) -> int:
     """Process a source."""
 
     if not config.CONFIG_FILE_PATH.exists():
         typer.secho(
-            'Config file not found.',
+            "Config file not found.",
             fg=typer.colors.RED,
         )
         raise typer.Exit(1)
@@ -102,16 +75,14 @@ def process_src(src: str =
 
 @app.command()
 def add(
-        description: List[str] = typer.Argument(...),
-        priority: int = typer.Option(2, "--priority", "-p", min=1, max=3),
+    description: List[str] = typer.Argument(...),
+    priority: int = typer.Option(2, "--priority", "-p", min=1, max=3),
 ) -> None:
     """Add a new to-do with a DESCRIPTION."""
     todoer = get_todoer()
     todo, error = todoer.add(description, priority)
     if error:
-        typer.secho(
-            f'Adding to-do failed with "{ERRORS[error]}"', fg=typer.colors.RED
-        )
+        typer.secho(f'Adding to-do failed with "{ERRORS[error]}"', fg=typer.colors.RED)
         raise typer.Exit(1)
     else:
         typer.secho(
@@ -127,9 +98,7 @@ def list_all() -> None:
     todoer = get_todoer()
     todo_list = todoer.get_todo_list()
     if len(todo_list) == 0:
-        typer.secho(
-            "There are no tasks in the to-do list yet", fg=typer.colors.RED
-        )
+        typer.secho("There are no tasks in the to-do list yet", fg=typer.colors.RED)
         raise typer.Exit()
     typer.secho("\nto-do list:\n", fg=typer.colors.BLUE, bold=True)
     columns = (
@@ -173,13 +142,13 @@ def set_done(todo_id: int = typer.Argument(...)) -> None:
 
 @app.command()
 def remove(
-        todo_id: int = typer.Argument(...),
-        force: bool = typer.Option(
-            False,
-            "--force",
-            "-f",
-            help="Force deletion without confirmation.",
-        ),
+    todo_id: int = typer.Argument(...),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        "-f",
+        help="Force deletion without confirmation.",
+    ),
 ) -> None:
     """Remove a to-do using its TODO_ID."""
     todoer = get_todoer()
@@ -207,9 +176,7 @@ def remove(
         except IndexError:
             typer.secho("Invalid TODO_ID", fg=typer.colors.RED)
             raise typer.Exit(1)
-        delete = typer.confirm(
-            f"Delete to-do # {todo_id}: {todo['Description']}?"
-        )
+        delete = typer.confirm(f"Delete to-do # {todo_id}: {todo['Description']}?")
         if delete:
             _remove()
         else:
@@ -218,11 +185,11 @@ def remove(
 
 @app.command(name="clear")
 def remove_all(
-        force: bool = typer.Option(
-            ...,
-            prompt="Delete all to-dos?",
-            help="Force deletion without confirmation.",
-        ),
+    force: bool = typer.Option(
+        ...,
+        prompt="Delete all to-dos?",
+        help="Force deletion without confirmation.",
+    ),
 ) -> None:
     """Remove all to-dos."""
     todoer = get_todoer()
@@ -248,13 +215,13 @@ def _version_callback(value: bool) -> None:
 
 @app.callback()
 def main(
-        version: Optional[bool] = typer.Option(
-            None,
-            "--version",
-            "-v",
-            help="Show the application's version and exit.",
-            callback=_version_callback,
-            is_eager=True,
-        )
+    version: Optional[bool] = typer.Option(
+        None,
+        "--version",
+        "-v",
+        help="Show the application's version and exit.",
+        callback=_version_callback,
+        is_eager=True,
+    )
 ) -> None:
     return
