@@ -184,22 +184,20 @@ class DatabaseHandler:
         try:
             sqlite_db = f"sqlite:///{self._db_path}"
             engine = create_engine(sqlite_db, echo=True)
-            with engine.connect() as conn:
+            with engine.begin() as conn:
                 try:
-
                     df.to_sql(
-                        table_name, conn.connection, index=False, if_exists="append"
+                        table_name, conn, index=False, if_exists="append"
                     )
                     return SUCCESS
                 except IntegrityError as e:
-                    # session.rollback() # Rollback the transaction on error
-                    print(f"Skipping '{df['hash']}' due to IntegrityError: {e.orig}")
-                except OSError:
+                    print(f"Skipping row due to IntegrityError: {e.orig}")
+                    return SUCCESS # Continue
+                except Exception as e:
+                    print(f"Error in df_to_db: {e}")
                     return DB_WRITE_ERROR
         except OSError:  # Catch file IO problems
             return DB_WRITE_ERROR
-        finally:
-            pass
 
     
 
@@ -243,15 +241,16 @@ class DatabaseHandler:
     def alter_table(self, table_name, new_col):
         try:
             sqlite_db = f"sqlite:///{self._db_path}"
-            sqlite_table = "logme"
             engine = create_engine(sqlite_db, echo=True)
 
-            with engine.connect() as conn:
+            with engine.begin() as conn:
                 try:
                     alter_sql = text(f"ALTER TABLE \"{table_name}\" ADD COLUMN \"{new_col}\" String NULL")
                     conn.execute(alter_sql)
-                except OSError:
+                except Exception as e:
+                    print(f"Error altering table: {e}")
                     return DB_READ_ERROR
+            return SUCCESS
         except OSError:  # Catch file IO problems
             return DB_READ_ERROR
 

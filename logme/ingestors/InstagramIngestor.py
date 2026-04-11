@@ -1,13 +1,12 @@
 from logme.storage.database import DatabaseHandler
-import argparse
-import sys
+import argparse, numpy as np, sys
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 import json, glob, shutil, os, instaloader, logging, typer
 from datetime import datetime
 from itertools import dropwhile, takewhile
 
-# from sqlite3 import OperationalError, connect
+from sqlite3 import OperationalError, connect
 from os import environ
 from logme.ddl.InstagramRow import InstagramRow
 
@@ -110,30 +109,74 @@ class InstagramIngestor:
         L.save_session_to_file(self.SESSIONFILE)
         InstagramIngestor.teardown(driver)
 
+    def instaloader_download(self, how_many):
+        next = True
+        offline = self._is_working_offline()
+        instaloader_session = self.setup_instaloader()
+        driver = self.setup_selenium()
+        try:
+            if not offline:
+                self.logger.info("Processing on line saved")
+                for i in range(how_many):
+                    next = self.instaloader_process(instaloader_session, driver)
+            else:
+                self.logger.info("Processing off line already downloaded")
+                urls = self.instaloader_process_downloaded()
+                self.move_to_exteranl_hdd()
+                self.unsave(urls, driver)
+        finally:
+            InstagramIngestor.teardown(driver)
+
     def setup_selenium(self):
+        self.logger.info("Setting up Selenium...")
         options = webdriver.FirefoxOptions()
         options.add_argument("--headless")
         service = webdriver.FirefoxService(executable_path="/snap/bin/geckodriver")
         driver = webdriver.Firefox(service=service, options=options)
+        driver.set_page_load_timeout(60)
+        
+        self.logger.info("Opening Instagram login page...")
         driver.get("https://www.instagram.com/accounts/login/")
-        driver.implicitly_wait(2)
-        username_box = driver.find_element(by=By.NAME, value="username")
-        password_box = driver.find_element(by=By.NAME, value="password")
+        driver.implicitly_wait(10)
+        
+        # Handle Cookie Consent if it appears
+        try:
+            self.logger.info("Checking for cookie consent...")
+            cookie_button = driver.find_element(By.XPATH, "//button[contains(text(), 'Allow all cookies') or contains(text(), 'Allow essential and optional cookies')]")
+            cookie_button.click()
+            self.logger.info("Cookie consent accepted.")
+        except:
+            self.logger.info("Cookie consent dialog not found or already accepted.")
+
+        self.logger.info("Filling login credentials...")
+        username_box = driver.find_element(by=By.NAME, value="email")
+        password_box = driver.find_element(by=By.NAME, value="pass")
         username_box.send_keys(self.USER)
         password_box.send_keys(self.PASSWORD)
+        
+        self.logger.info("Clicking login button...")
         login_button = driver.find_element(
-            by=By.XPATH, value="//button[@type='submit']"
+            by=By.XPATH, value='//*[@aria-label="Log In"]'
         )
         login_button.click()
+        
+        self.logger.info("Waiting for 'Not now' prompt...")
         driver.implicitly_wait(10)
-        driver.find_element(
-            by=By.XPATH, value="//div[contains(string(), 'Not now')]"
-        ).click()
+        try:
+            driver.find_element(
+                by=By.XPATH, value="//div[contains(string(), 'Not now')]"
+            ).click()
+            self.logger.info("'Not now' clicked.")
+        except:
+            self.logger.info("'Not now' prompt not found.")
+            
         driver.implicitly_wait(10)
         return driver
 
+    @staticmethod
     def teardown(driver):
-        driver.quit()
+        if driver:
+            driver.quit()
 
     def setup_instaloader(self):
         # Get instance
@@ -149,59 +192,37 @@ class InstagramIngestor:
         self.logger.info(f"testLogin: {testLogin}")
         return L
 
-    def instaloader_download(self, how_many):
-        next = True
+    def _is_working_offline(self):
         files = glob.glob("*xz", root_dir=self.conf["tmpdir"])
         if len(files) == 0:
-            offline = False
+            return False
         else:
-            offline = True
-        # Clear comment
-        # instaloader_session = self.setup_instaloader()
-        # driver = self.setup_selenium()
-        if not offline:
-            self.logger.info("Processing on line saved")
-            # while next:
-            for i in range(how_many):
-                next = self.instaloader_process(instaloader_session, driver)
-            InstagramIngestor.teardown(driver)
-        else:
-            self.logger.info("Processing off line already downloaded")
-            urls = self.instaloader_process_downloaded()
-            self.move_to_exteranl_hdd()
-            self.unsave(urls, driver)
-            # instaloader_session = None
-            # driver = None
-
+            return True
 
     def instaloader_process_downloaded(self) -> list[str]:
         files = glob.glob("*xz", root_dir=self.conf["tmpdir"])
         urls = []
-        merged = None
-        dfs = []
         for file in files:
             self.logger.info(f"Processing: {file}")
             self.logger.info(f"instaloader_process_offline: {file}")
             tmpdir = self.conf["tmpdir"]
             jsonPost = lzma.open(f"{tmpdir}/{file}").read().decode("utf-8")
             json_obj = json.loads(jsonPost)
-            df1 = pd.json_normalize(json_obj)
+            df1 = pd.json_normalize(json_obj).reset_index(drop=True)
+            df1.insert(loc=0, column="ingest_timestamp", value=now_ts)
+            df1.insert(loc=0, column="src_file", value=file)
             df1_cols = sorted(set(df1.columns))
-            dfs.append(df1)
             print(f"df1 # cols: {len(df1.columns)}")
             print(f"df1 set # cols: {len(df1_cols)}")
             # table exists?
-            table_name="instagram_raw_2"
+            table_name = "instagram_raw_2"
             table_exists = ProcessingUtils._table_exists(table_name=table_name)
             print(f"table exists: {table_exists}")
-            pd.set_option('display.max_columns', 1000)
-            pd.set_option('display.expand_frame_repr', True) 
-            import numpy as np
+            # pd.set_option('display.max_columns', 1000)
+            # pd.set_option('display.expand_frame_repr', True)
             # Convert to string but restore actual NaNs
-            df1 = df1.astype(str).replace('nan', np.nan)
-            # print(df1.iloc[0].to_string())
-            # print(df1.info())
-            # print(df1.dtypes)
+            df1 = df1.astype(str).replace("nan", np.nan)
+            print(df1.head())
             if not table_exists:
                 self._db_handler.df_to_db(df=df1, table_name=table_name)
             else:
@@ -213,33 +234,40 @@ class InstagramIngestor:
                 else:
                     print(f"Columns differ. Alter table")
                     new_columns = [key for key in df1_cols if key not in cols_in_db]
-                    print("Different columns")
-                    print(new_columns)
+                    # print("Different columns")
+                    # print(new_columns)
                     for new_col in new_columns:
-                        self._db_handler.alter_table(table_name=table_name, new_col=new_col)
+                        self._db_handler.alter_table(
+                            table_name=table_name, new_col=new_col
+                        )
                     cols_in_db = self._db_handler.fields_in_table(table_name)
                     print(f"{len(cols_in_db)} columns in database after alter")
-                    placeholders = ', '.join(['?' for _ in cols_in_db])
-                    quoted_columns = ', '.join([f'"{col}"' for col in cols_in_db])
-                    values = [df1[col].iloc[0] if col in df1_cols else np.nan for col in cols_in_db]
-                    # print(f"Placeholders:\n{placeholders}")
-                    # print(f"quoted_columns:\n{quoted_columns}")
-                    # print(f"values:\n{values}")
-                    self._db_handler.row_to_raw_instagram(table_name=table_name,
-                                                          placeholders=placeholders,
-                                                          quoted_columns=quoted_columns,
-                                                          values=values)
-        
-        # merged_df = pd.concat(dfs,ignore_index=True)
-        # print(f"# all cols: {len(merged_df.columns)}")
-        exit(3)
-
-
-            # data = self.instaloader_landing_to_raw(jsonPost)
-            # data = pd.DataFrame([data])
-            # data["src_file"] = file
-            # data["ingest_timestamp"] = now_ts
-            # data["hash"] = data.at[0,"shortcode"]
+                placeholders = ", ".join(["?" for _ in cols_in_db])
+                quoted_columns = ", ".join([f'"{col}"' for col in cols_in_db])
+                values = [
+                    df1[col].iloc[0] if col in df1_cols else np.nan
+                    for col in cols_in_db
+                ]
+                print(f'cols_in_db: {cols_in_db.index("node.shortcode")}')
+                print(
+                    f"""
+{values[cols_in_db.index("node.shortcode")]}: {df1['node.shortcode'].iloc[0]}
+                      """
+                )
+                shortcode_value = df1["node.shortcode"].iloc[0]
+                print(f"values (shortcode): {shortcode_value}")
+                # print(f"values (shortcode): {values[{df1['node.shortcode']}]}")
+                # print(f"values (shortcode): {df1['node.shortcode']}")
+                self._db_handler.row_to_raw_instagram(
+                    table_name=table_name,
+                    placeholders=placeholders,
+                    quoted_columns=quoted_columns,
+                    values=values,
+                )
+            post_url = f'https://www.instagram.com/p/{df1["node.shortcode"].iloc[0]}/'
+            urls.append(post_url)
+            print(f"post_url {post_url}")
+            print(f"urls: {urls}")
 
             # # TODO:
             # # Field *hash* in instagram_raw is unique
@@ -275,14 +303,9 @@ class InstagramIngestor:
 
             # # res = self._db_handler.df_to_db(data, f'{self.src}_raw')
             # # prompt = input(f"Short code: {data['shortcode']}")
-            # post_url = f'https://www.instagram.com/p/{data.at[0,"shortcode"]}/'
-            # print(f"post_url {post_url}")
-            # print(f"urls: {urls}")
-            # urls.append(post_url)
         return urls
 
-
-    def _find_key_paths(self,data, target_key, current_path=None):
+    def _find_key_paths(self, data, target_key, current_path=None):
         """
         Finds all paths to a target_key in a nested dictionary or list.
 
@@ -310,16 +333,15 @@ class InstagramIngestor:
                 if isinstance(item, (dict, list)):
                     yield from self._find_key_paths(item, target_key, new_path)
 
-
     def _instaloader_json_path_exists(self, field, post) -> str:
-        path=self.conf_landing_to_raw[field].split(",")
-        path_length=len(path)
+        path = self.conf_landing_to_raw[field].split(",")
+        path_length = len(path)
         print(f"Looking for data under:")
         print(path)
         print(f"With length: {path_length}")
         json_obj = json.loads(post)
-        vals=[]
-        for e1 in self._find_key_paths(json_obj,field):
+        vals = []
+        for e1 in self._find_key_paths(json_obj, field):
             # If the lenght in the config equals the one
             # in e1 the match is "perfect"
             print("Found path")
@@ -332,14 +354,13 @@ class InstagramIngestor:
             elif path_length > len(e1):
                 print(f"The found path is smaller. Not a good candidate")
         exit(3)
-            # o1=json_obj
-            # for k1 in e1:
-            #     if isinstance(k1,int):
-            #         k1=int(k1)
-            #     o1=o1[k1]
-            # vals.append(o1)
+        # o1=json_obj
+        # for k1 in e1:
+        #     if isinstance(k1,int):
+        #         k1=int(k1)
+        #     o1=o1[k1]
+        # vals.append(o1)
         return vals
-
 
     def instaloader_landing_to_raw(self, post) -> dict:
         """
@@ -378,6 +399,7 @@ class InstagramIngestor:
         # Move to external hdd
         file_names = os.listdir(self.conf["tmpdir"])
         for file_name in file_names:
+            print(f"Moving {file_name} to {self.conf['external_hdd']}")
             if not os.path.exists(os.path.join(self.conf["external_hdd"], file_name)):
                 shutil.move(
                     os.path.join(self.conf["tmpdir"], file_name),
@@ -390,6 +412,7 @@ class InstagramIngestor:
         next = False
         for url in urls:
             self.logger.info(f"Unsaving: {url}")
+            print(f"Unsaving: {url}")
             driver.get(url)
             driver.implicitly_wait(10)
             try:

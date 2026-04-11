@@ -36,7 +36,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def source_trigger(src: str = None) -> None:
+def source_trigger(src: str = None, amount: int = 0) -> None:
     logger.info(f"source_trigger src: {src}")
     dst_path = Path(
         u.get_local_storage_path(config.CONFIG_FILE_PATH)
@@ -80,7 +80,7 @@ def source_trigger(src: str = None) -> None:
         case "instagram":
             logger.info("Process instagram saved posts")
             ingestor = InstagramIngestor(src, conf)
-            ingestor.instaloader_download(6)
+            ingestor.instaloader_download(amount)
         case "Multi_Timer":
             logger.info("Process Multi_Timer")
             ingestor = Multi_TimerIngestor.MultiTimerIngest(src, dst_path, conf)
