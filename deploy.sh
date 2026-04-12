@@ -12,9 +12,11 @@ else
     exit 1
 fi
 
-# Local path settings
+# Path settings
 LOCAL_COOKIE_PATH="/home/rjof/snap/firefox/common/.mozilla/firefox/8j9s4e80.default/cookies.sqlite"
 REMOTE_COOKIE_PATH="/home/rjof/snap/firefox/common/.mozilla/firefox/8j9s4e80.default/cookies.sqlite"
+LOCAL_CONFIG_DIR="/home/rjof/.config/logme"
+REMOTE_CONFIG_DIR="/home/rjof/.config/logme"
 
 if ! command -v sshpass &> /dev/null; then
     echo "ERROR: 'sshpass' is not installed."
@@ -28,9 +30,7 @@ TARGET_PY="python${PY_MAJOR}.${PY_MINOR}"
 
 echo "1. Ensuring Locales and Python $TARGET_PY exist in LXC..."
 
-# This block runs on the Proxmox host to manage the LXC
 sshpass -p "$PROXMOX_PASSWORD" ssh "$PROXMOX_USER@$PROXMOX_HOST" "
-    # Install locales if missing and generate them to quiet warnings
     if ! pct exec $LXC_ID -- dpkg -s locales > /dev/null 2>&1; then
         echo 'Installing locales in LXC...'
         pct exec $LXC_ID -- apt-get update
@@ -41,7 +41,6 @@ sshpass -p "$PROXMOX_PASSWORD" ssh "$PROXMOX_USER@$PROXMOX_HOST" "
     pct exec $LXC_ID -- locale-gen es_MX.UTF-8
     pct exec $LXC_ID -- update-locale
 
-    # Check if the specific python version exists in LXC
     if ! pct exec $LXC_ID -- which $TARGET_PY > /dev/null 2>&1; then
         echo 'Required Python version $TARGET_PY not found in LXC. Attempting install...'
         pct exec $LXC_ID -- apt-get update
@@ -54,7 +53,8 @@ sshpass -p "$PROXMOX_PASSWORD" ssh "$PROXMOX_USER@$PROXMOX_HOST" "
 echo "2. Pushing changes to GitHub..."
 git push origin master
 
-echo "3. Syncing cookies.sqlite..."
+echo "3. Syncing cookies.sqlite and configuration files..."
+# Sync Cookies
 sshpass -p "$PROXMOX_PASSWORD" scp "$LOCAL_COOKIE_PATH" "$PROXMOX_USER@$PROXMOX_HOST:/tmp/cookies.sqlite"
 sshpass -p "$PROXMOX_PASSWORD" ssh "$PROXMOX_USER@$PROXMOX_HOST" "
     pct exec $LXC_ID -- mkdir -p $(dirname "$REMOTE_COOKIE_PATH")
@@ -62,15 +62,27 @@ sshpass -p "$PROXMOX_PASSWORD" ssh "$PROXMOX_USER@$PROXMOX_HOST" "
     rm /tmp/cookies.sqlite
 "
 
+# Sync Config Directory
+echo "Compressing and syncing $LOCAL_CONFIG_DIR..."
+tar -czf /tmp/logme_config.tar.gz -C "$LOCAL_CONFIG_DIR" .
+sshpass -p "$PROXMOX_PASSWORD" scp /tmp/logme_config.tar.gz "$PROXMOX_USER@$PROXMOX_HOST:/tmp/logme_config.tar.gz"
+sshpass -p "$PROXMOX_PASSWORD" ssh "$PROXMOX_USER@$PROXMOX_HOST" "
+    pct exec $LXC_ID -- mkdir -p $REMOTE_CONFIG_DIR
+    pct push $LXC_ID /tmp/logme_config.tar.gz /tmp/logme_config.tar.gz
+    pct exec $LXC_ID -- tar -xzf /tmp/logme_config.tar.gz -C $REMOTE_CONFIG_DIR
+    pct exec $LXC_ID -- rm /tmp/logme_config.tar.gz
+    rm /tmp/logme_config.tar.gz
+"
+rm /tmp/logme_config.tar.gz
+
 echo "4. Updating LXC Code and Virtual Environment..."
 sshpass -p "$PROXMOX_PASSWORD" ssh "$PROXMOX_USER@$PROXMOX_HOST" "pct exec $LXC_ID -- bash -c '
-    mkdir -p $(dirname "$VENV_DIR")
+    mkdir -p $(dirname \"$VENV_DIR\")
     
-    # If venv exists but uses wrong version, recreate it
     if [ -d \"$VENV_DIR\" ]; then
         CURRENT_VENV_VER=\$($VENV_DIR/bin/python -c \"import sys; print(f\\\"{sys.version_info.major}.{sys.version_info.minor}\\\")\")
         if [ \"\$CURRENT_VENV_VER\" != \"${PY_MAJOR}.${PY_MINOR}\" ]; then
-            echo \"Venv version mismatch (\$CURRENT_VENV_VER vs ${PY_MAJOR}.${PY_MINOR}). Recreating...\"
+            echo \"Venv version mismatch. Recreating...\"
             rm -rf \"$VENV_DIR\"
         fi
     fi
