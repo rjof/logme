@@ -26,10 +26,53 @@ The deployment process is automated via a `deploy.sh` script on the development 
   instagram_password=your_password
   ```
 
-### 2. Proxmox LXC Container
-- **Firefox & Geckodriver**: Must be installed for Selenium to run in headless mode.
-- **Git**: Must be installed and configured to pull from your repository.
-- **Python 3**: The container should support the same Python version as your development machine (the deploy script will attempt to install the correct version if missing).
+### 2. Proxmox LXC Container (Ubuntu 24.04 Setup)
+
+#### Firefox Installation (Avoid Snap)
+Ubuntu 24.04 LXCs struggle with the default Snap-based Firefox. Use the Mozilla Team PPA instead:
+```bash
+# Inside LXC as root
+add-apt-repository ppa:mozillateam/ppa -y
+
+# Pin the PPA to prevent Snap transition
+echo '
+Package: *
+Pin: release o=LP-PPA-mozillateam
+Pin-Priority: 1001
+' | tee /etc/apt/preferences.d/mozilla-firefox
+
+apt update
+apt install -y firefox
+```
+
+#### Geckodriver Installation
+```bash
+# Inside LXC as root
+wget https://github.com/mozilla/geckodriver/releases/download/v0.34.0/geckodriver-v0.34.0-linux64.tar.gz
+tar -xvzf geckodriver-v0.34.0-linux64.tar.gz
+mv geckodriver /usr/local/bin/
+chmod +x /usr/local/bin/geckodriver
+rm geckodriver-v0.34.0-linux64.tar.gz
+```
+
+#### Mounting External HDD (Proxmox Bind Mount)
+To save downloaded posts to an external USB-C drive, use a bind mount from the Proxmox host.
+
+**Step A: On the Proxmox Host**
+1. Identify the drive UUID: `blkid /dev/sdX1`
+2. Create mount point: `mkdir -p /mnt/external_toshiba`
+3. Add to `/etc/fstab`:
+   `UUID=YOUR-UUID /mnt/external_toshiba auto nosuid,nodev,nofail 0 0`
+4. Mount: `mount -a`
+5. Pass to LXC (replace `<VMID>`):
+   `pct set <VMID> -mp0 /mnt/external_toshiba,mp=/media/rjof/toshiba`
+
+**Step B: Inside the LXC Container**
+```bash
+# Ensure mount point exists and set permissions
+mkdir -p /media/rjof/toshiba
+chown -R rjof:rjof /media/rjof/toshiba
+```
 
 ## Deployment Steps
 
