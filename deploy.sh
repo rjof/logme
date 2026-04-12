@@ -31,6 +31,7 @@ TARGET_PY="python${PY_MAJOR}.${PY_MINOR}"
 echo "1. Ensuring Locales and Python $TARGET_PY exist in LXC..."
 
 sshpass -p "$PROXMOX_PASSWORD" ssh "$PROXMOX_USER@$PROXMOX_HOST" "
+    export LC_ALL=C
     if ! pct exec $LXC_ID -- dpkg -s locales > /dev/null 2>&1; then
         echo 'Installing locales in LXC...'
         pct exec $LXC_ID -- apt-get update
@@ -57,6 +58,7 @@ echo "3. Syncing cookies.sqlite and configuration files..."
 # Sync Cookies
 sshpass -p "$PROXMOX_PASSWORD" scp "$LOCAL_COOKIE_PATH" "$PROXMOX_USER@$PROXMOX_HOST:/tmp/cookies.sqlite"
 sshpass -p "$PROXMOX_PASSWORD" ssh "$PROXMOX_USER@$PROXMOX_HOST" "
+    export LC_ALL=C
     pct exec $LXC_ID -- mkdir -p $(dirname "$REMOTE_COOKIE_PATH")
     pct push $LXC_ID /tmp/cookies.sqlite $REMOTE_COOKIE_PATH
     rm /tmp/cookies.sqlite
@@ -67,6 +69,7 @@ echo "Compressing and syncing $LOCAL_CONFIG_DIR..."
 tar -czf /tmp/logme_config.tar.gz -C "$LOCAL_CONFIG_DIR" .
 sshpass -p "$PROXMOX_PASSWORD" scp /tmp/logme_config.tar.gz "$PROXMOX_USER@$PROXMOX_HOST:/tmp/logme_config.tar.gz"
 sshpass -p "$PROXMOX_PASSWORD" ssh "$PROXMOX_USER@$PROXMOX_HOST" "
+    export LC_ALL=C
     pct exec $LXC_ID -- mkdir -p $REMOTE_CONFIG_DIR
     pct push $LXC_ID /tmp/logme_config.tar.gz /tmp/logme_config.tar.gz
     pct exec $LXC_ID -- tar -xzf /tmp/logme_config.tar.gz -C $REMOTE_CONFIG_DIR
@@ -77,10 +80,11 @@ rm /tmp/logme_config.tar.gz
 
 echo "4. Updating LXC Code and Virtual Environment..."
 sshpass -p "$PROXMOX_PASSWORD" ssh "$PROXMOX_USER@$PROXMOX_HOST" "pct exec $LXC_ID -- bash -c '
-    mkdir -p $(dirname \"$VENV_DIR\")
+    export LC_ALL=en_US.UTF-8
+    mkdir -p \"$(dirname "$VENV_DIR")\"
     
     if [ -d \"$VENV_DIR\" ]; then
-        CURRENT_VENV_VER=\$($VENV_DIR/bin/python -c \"import sys; print(f\\\"{sys.version_info.major}.{sys.version_info.minor}\\\")\")
+        CURRENT_VENV_VER=\$(\"$VENV_DIR/bin/python\" -c \"import sys; print(f\\\"{sys.version_info.major}.{sys.version_info.minor}\\\")\")
         if [ \"\$CURRENT_VENV_VER\" != \"${PY_MAJOR}.${PY_MINOR}\" ]; then
             echo \"Venv version mismatch. Recreating...\"
             rm -rf \"$VENV_DIR\"
