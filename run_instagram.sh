@@ -9,7 +9,7 @@ LOG_FILE="/home/rjof/logme_data/logs/cron_instagram.log"
 # Ensure log directory exists
 mkdir -p "$(dirname "$LOG_FILE")"
 
-cd "$PROJECT_DIR" || { echo "Could not cd to $PROJECT_DIR"; exit 1; }
+cd "$PROJECT_DIR" || { echo "Could not cd to $PROJECT_DIR" >> "$LOG_FILE"; exit 1; }
 
 # 1. Load credentials from .env
 if [ -f .env ]; then
