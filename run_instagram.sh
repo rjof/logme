@@ -2,7 +2,7 @@
 # run_instagram.sh - Managed by logme project
 # Handles daily randomized Instagram ingestion
 
-PROJECT_DIR="/home/rjof/Documents/logme_project"
+PROJECT_DIR="/home/rjof/Documents/logme"
 VENV_PYTHON="/home/rjof/virtual_environments/logme/bin/python"
 LOG_FILE="/home/rjof/logme_data/logs/cron_instagram.log"
 
