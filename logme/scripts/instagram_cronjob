@@ -1,0 +1,10 @@
+#!/bin/bash
+NOW=$(/bin/date +"%Y-%m-%d_%H-%M-%S")
+exec 1>> /home/rjof/logme_data/logs/${NOW}_cron_instagram.log 2>&1
+echo "Running cron job with daily anacron for logme instagram" 
+cd /home/rjof/Documents/logme_project
+echo "In: $(pwd)"
+source /home/rjof/virtual_environments/logme/bin/activate
+echo "Which python $(echo $VIRTUAL_ENV)"
+/home/rjof/virtual_environments/logme/bin/python -m logme source instagram --amount 9
+deactivate
