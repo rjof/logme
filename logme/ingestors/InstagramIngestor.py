@@ -2,7 +2,7 @@ from logme.storage.database import DatabaseHandler
 import argparse, numpy as np, sys
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-import json, glob, shutil, os, instaloader, logging, typer
+import json, glob, shutil, os, instaloader, logging, typer, time
 from datetime import datetime
 from itertools import dropwhile, takewhile
 
@@ -128,49 +128,61 @@ class InstagramIngestor:
             InstagramIngestor.teardown(driver)
 
     def setup_selenium(self):
-        self.logger.info("Setting up Selenium...")
+        self.logger.info("Setting up Selenium with injected cookies...")
         options = webdriver.FirefoxOptions()
         options.add_argument("--headless")
         service = webdriver.FirefoxService(executable_path="/snap/bin/geckodriver")
         driver = webdriver.Firefox(service=service, options=options)
         driver.set_page_load_timeout(60)
         
-        self.logger.info("Opening Instagram login page...")
-        driver.get("https://www.instagram.com/accounts/login/")
-        driver.implicitly_wait(10)
-        
-        # Handle Cookie Consent if it appears
         try:
-            self.logger.info("Checking for cookie consent...")
-            cookie_button = driver.find_element(By.XPATH, "//button[contains(text(), 'Allow all cookies') or contains(text(), 'Allow essential and optional cookies')]")
-            cookie_button.click()
-            self.logger.info("Cookie consent accepted.")
-        except:
-            self.logger.info("Cookie consent dialog not found or already accepted.")
-
-        self.logger.info("Filling login credentials...")
-        username_box = driver.find_element(by=By.NAME, value="email")
-        password_box = driver.find_element(by=By.NAME, value="pass")
-        username_box.send_keys(self.USER)
-        password_box.send_keys(self.PASSWORD)
-        
-        self.logger.info("Clicking login button...")
-        login_button = driver.find_element(
-            by=By.XPATH, value='//*[@aria-label="Log In"]'
-        )
-        login_button.click()
-        
-        self.logger.info("Waiting for 'Not now' prompt...")
-        driver.implicitly_wait(10)
-        try:
-            driver.find_element(
-                by=By.XPATH, value="//div[contains(string(), 'Not now')]"
-            ).click()
-            self.logger.info("'Not now' clicked.")
-        except:
-            self.logger.info("'Not now' prompt not found.")
+            # Set domain context
+            driver.get("https://www.instagram.com/")
+            time.sleep(3)
             
-        driver.implicitly_wait(10)
+            # Inject cookies from Firefox profile
+            cookie_db = self.conf["cookiefile"]
+            if os.path.exists(cookie_db):
+                self.logger.info(f"Injecting cookies from {cookie_db}")
+                # Use a temporary copy to avoid locking issues
+                temp_db = "temp_cookies_selenium.sqlite"
+                shutil.copy(cookie_db, temp_db)
+                
+                import sqlite3
+                conn = sqlite3.connect(temp_db)
+                cursor = conn.cursor()
+                cursor.execute("SELECT name, value, host, path, expiry FROM moz_cookies WHERE host LIKE '%instagram.com'")
+                cookies = cursor.fetchall()
+                conn.close()
+                os.remove(temp_db)
+                
+                for name, value, host, path, expiry in cookies:
+                    cookie_dict = {
+                        'name': name,
+                        'value': value,
+                        'domain': host,
+                        'path': path,
+                    }
+                    try:
+                        driver.add_cookie(cookie_dict)
+                    except:
+                        pass
+                self.logger.info("Cookies injected.")
+            else:
+                self.logger.warning(f"Cookie file not found: {cookie_db}. Attempting manual login.")
+                # Fallback to manual login if needed
+                driver.get("https://www.instagram.com/accounts/login/")
+                driver.implicitly_wait(10)
+                username_box = driver.find_element(by=By.NAME, value="email")
+                password_box = driver.find_element(by=By.NAME, value="pass")
+                username_box.send_keys(self.USER)
+                password_box.send_keys(self.PASSWORD)
+                login_button = driver.find_element(by=By.XPATH, value='//*[@aria-label="Log In"]')
+                login_button.click()
+                time.sleep(5)
+        except Exception as e:
+            self.logger.error(f"Error in setup_selenium: {e}")
+            
         return driver
 
     @staticmethod
@@ -414,15 +426,35 @@ class InstagramIngestor:
             self.logger.info(f"Unsaving: {url}")
             print(f"Unsaving: {url}")
             driver.get(url)
-            driver.implicitly_wait(10)
+            time.sleep(5)
             try:
-                save_botton = driver.find_element(
-                    By.XPATH, "//*[name()='svg' and @aria-label='Remove']"
-                )
-                save_botton.click()
-                next = True
-            except:
-                self.logger.info(f"Already unsaved: {url} or no more saved")
+                # Multiple common selectors for Instagram's save/unsave button
+                selectors = [
+                    "//*[name()='svg' and @aria-label='Remove']",
+                    "//*[name()='svg' and @aria-label='Unsave']",
+                ]
+                
+                for selector in selectors:
+                    try:
+                        elements = driver.find_elements(By.XPATH, selector)
+                        if not elements:
+                            continue
+                        
+                        element = elements[0]
+                        aria_label = element.get_attribute("aria-label")
+                        self.logger.info(f"Found {aria_label} button.")
+                        
+                        # Try to find the actual clickable button (ancestor)
+                        clickable = element.find_element(By.XPATH, "./ancestor::div[@role='button'] | ./ancestor::button")
+                        clickable.click()
+                        self.logger.info(f"Successfully clicked {aria_label} button.")
+                        next = True
+                        time.sleep(2)
+                        break
+                    except:
+                        continue
+            except Exception as e:
+                self.logger.error(f"Error during unsave for {url}: {e}")
                 next = False
         return next
 
