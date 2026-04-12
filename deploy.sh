@@ -22,19 +22,28 @@ if ! command -v sshpass &> /dev/null; then
 fi
 
 # 2. Identify the required Python version
-# Extracts e.g., "3.12"
 PY_MAJOR=$(python3 -c 'import sys; print(sys.version_info.major)')
 PY_MINOR=$(python3 -c 'import sys; print(sys.version_info.minor)')
 TARGET_PY="python${PY_MAJOR}.${PY_MINOR}"
 
-echo "1. Ensuring LXC has $TARGET_PY..."
+echo "1. Ensuring Locales and Python $TARGET_PY exist in LXC..."
 
 # This block runs on the Proxmox host to manage the LXC
 sshpass -p "$PROXMOX_PASSWORD" ssh "$PROXMOX_USER@$PROXMOX_HOST" "
+    # Install locales if missing and generate them to quiet warnings
+    if ! pct exec $LXC_ID -- dpkg -s locales > /dev/null 2>&1; then
+        echo 'Installing locales in LXC...'
+        pct exec $LXC_ID -- apt-get update
+        pct exec $LXC_ID -- apt-get install -y locales
+    fi
+    echo 'Generating locales...'
+    pct exec $LXC_ID -- locale-gen en_US.UTF-8
+    pct exec $LXC_ID -- locale-gen es_MX.UTF-8
+    pct exec $LXC_ID -- update-locale
+
     # Check if the specific python version exists in LXC
     if ! pct exec $LXC_ID -- which $TARGET_PY > /dev/null 2>&1; then
         echo 'Required Python version $TARGET_PY not found in LXC. Attempting install...'
-        # Note: This assumes a Debian/Ubuntu based LXC
         pct exec $LXC_ID -- apt-get update
         pct exec $LXC_ID -- apt-get install -y $TARGET_PY ${TARGET_PY}-venv
     else
