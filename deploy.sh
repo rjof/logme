@@ -17,6 +17,8 @@ LOCAL_COOKIE_PATH="/home/rjof/snap/firefox/common/.mozilla/firefox/8j9s4e80.defa
 REMOTE_COOKIE_PATH="/home/rjof/snap/firefox/common/.mozilla/firefox/8j9s4e80.default/cookies.sqlite"
 LOCAL_CONFIG_DIR="/home/rjof/.config/logme"
 REMOTE_CONFIG_DIR="/home/rjof/.config/logme"
+LOCAL_INSTA_SESSION="/home/rjof/.config/instaloader/session-errejotaoefe"
+REMOTE_INSTA_SESSION="/home/rjof/.config/instaloader/session-errejotaoefe"
 
 if ! command -v sshpass &> /dev/null; then
     echo "ERROR: 'sshpass' is not installed."
@@ -62,6 +64,16 @@ sshpass -p "$PROXMOX_PASSWORD" ssh "$PROXMOX_USER@$PROXMOX_HOST" "
     pct exec $LXC_ID -- mkdir -p $(dirname "$REMOTE_COOKIE_PATH")
     pct push $LXC_ID /tmp/cookies.sqlite $REMOTE_COOKIE_PATH
     rm /tmp/cookies.sqlite
+"
+
+# Sync Instaloader Session
+echo "Syncing Instaloader session..."
+sshpass -p "$PROXMOX_PASSWORD" scp "$LOCAL_INSTA_SESSION" "$PROXMOX_USER@$PROXMOX_HOST:/tmp/session-errejotaoefe"
+sshpass -p "$PROXMOX_PASSWORD" ssh "$PROXMOX_USER@$PROXMOX_HOST" "
+    export LC_ALL=C
+    pct exec $LXC_ID -- mkdir -p $(dirname "$REMOTE_INSTA_SESSION")
+    pct push $LXC_ID /tmp/session-errejotaoefe $REMOTE_INSTA_SESSION
+    rm /tmp/session-errejotaoefe
 "
 
 # Sync Config Directory
