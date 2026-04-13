@@ -10,15 +10,11 @@
 #     Multi_TimerIngestor,
 # )
 # from .storage.database import DatabaseHandler
-from logme.ingestors.InstagramIngestor import InstagramIngestor
 from logme import (
     config,
     date_time,
 )
 import logme.utils.Utils as u
-from logme.processors import Multi_TimerProcessor
-from logme.connectors import GoogleDrive
-from logme.connectors import Dropbox
 import pandas as pd
 
 import io
@@ -37,6 +33,11 @@ logger = logging.getLogger(__name__)
 
 
 def source_trigger(src: str = None, amount: int = 0) -> None:
+    from logme.ingestors.InstagramIngestor import InstagramIngestor
+    from logme.processors import Multi_TimerProcessor
+    from logme.connectors import GoogleDrive
+    from logme.connectors import Dropbox
+    
     logger.info(f"source_trigger src: {src}")
     dst_path = Path(
         u.get_local_storage_path(config.CONFIG_FILE_PATH)

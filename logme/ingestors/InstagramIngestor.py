@@ -29,7 +29,6 @@ from logme import (
 )  # , instagram_tmpdir, instagram_external_hdd, instagram_cookiefile, instagram_sessionfile)
 
 # from logme.storage.database import *
-from logme.utils import ProcessingUtils
 import logme.utils.Utils as u
 
 
@@ -37,6 +36,8 @@ class InstagramIngestor:
     """Class to download saved posts"""
 
     def __init__(self, src: Path, conf: dict) -> None:
+        from logme.utils import ProcessingUtils
+        self.ProcessingUtils = ProcessingUtils
         self.src = src
         self.conf = conf
         self.conf_landing_to_raw = u.get_source_conf(
@@ -54,13 +55,13 @@ class InstagramIngestor:
         # cookiefile = environ.get('firefox_cookiesfile') # clean "/home/rjof/snap/firefox/common/.mozilla/firefox/ycxcs1wp.default/cookies.sqlite"
         # sessionfile = environ.get('instaloader_sessionfile') # clean "/home/rjof/.config/instaloader/session-errejotaoefe"
         self.SESSIONFILE = Path(self.conf["sessionfile"])
-        if ProcessingUtils._table_exists(f"{self.src}_raw") != True:
+        if self.ProcessingUtils._table_exists(f"{self.src}_raw") != True:
             self.logger.info(f"Creating raw table {self.src}_raw")
-            query = ProcessingUtils._query_from_list_of_fields(
+            query = self.ProcessingUtils._query_from_list_of_fields(
                 self.src, "raw", self.conf["fields"], self.conf["fields_format"]
             )
             # print(query)
-            if ProcessingUtils._create_table(query) != SUCCESS:
+            if self.ProcessingUtils._create_table(query) != SUCCESS:
                 raise typer.Exit(f"Error creating {self.src}_raw")
 
         if config.CONFIG_FILE_PATH.exists():
@@ -228,7 +229,7 @@ class InstagramIngestor:
             print(f"df1 set # cols: {len(df1_cols)}")
             # table exists?
             table_name = "instagram_raw_2"
-            table_exists = ProcessingUtils._table_exists(table_name=table_name)
+            table_exists = self.ProcessingUtils._table_exists(table_name=table_name)
             print(f"table exists: {table_exists}")
             # pd.set_option('display.max_columns', 1000)
             # pd.set_option('display.expand_frame_repr', True)
