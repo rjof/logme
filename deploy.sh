@@ -103,6 +103,9 @@ sshpass -p "$PROXMOX_PASSWORD" ssh "$PROXMOX_USER@$PROXMOX_HOST" "pct exec $LXC_
     echo \"Pulling latest code...\"
     git pull
     
+    echo \"Making run_instagram.sh executable...\"
+    chmod +x run_instagram.sh
+    
     echo \"Updating dependencies...\"
     \"$VENV_DIR/bin/python\" -m pip install --upgrade pip
     \"$VENV_DIR/bin/python\" -m pip install -r requirements.txt
