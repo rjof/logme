@@ -132,8 +132,22 @@ class InstagramIngestor:
         self.logger.info("Setting up Selenium with injected cookies...")
         options = webdriver.FirefoxOptions()
         options.add_argument("--headless")
-        service = webdriver.FirefoxService(executable_path="/snap/bin/geckodriver")
-        driver = webdriver.Firefox(service=service, options=options)
+        
+        # Check for common geckodriver paths, otherwise rely on PATH
+        gecko_path = None
+        for path in ["/usr/local/bin/geckodriver", "/snap/bin/geckodriver", "/usr/bin/geckodriver"]:
+            if os.path.exists(path):
+                gecko_path = path
+                break
+        
+        if gecko_path:
+            self.logger.info(f"Using geckodriver at {gecko_path}")
+            service = webdriver.FirefoxService(executable_path=gecko_path)
+            driver = webdriver.Firefox(service=service, options=options)
+        else:
+            self.logger.info("Geckodriver not found in common paths, relying on system PATH")
+            driver = webdriver.Firefox(options=options)
+            
         driver.set_page_load_timeout(60)
         
         try:
