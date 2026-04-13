@@ -32,44 +32,44 @@ TARGET_PY="python${PY_MAJOR}.${PY_MINOR}"
 
 echo "1. Ensuring Locales and Python $TARGET_PY exist in LXC..."
 
-sshpass -p "$PROXMOX_PASSWORD" ssh "$PROXMOX_USER@$PROXMOX_HOST" "
+sshpass -p "$PROXMOX_PASSWORD" ssh "$PROXMOX_USER@$PROXMOX_HOST" '\''
     export LC_ALL=C
-    if ! pct exec $LXC_ID -- dpkg -s locales > /dev/null 2>&1; then
-        echo 'Installing locales in LXC...'
-        pct exec $LXC_ID -- apt-get update
-        pct exec $LXC_ID -- apt-get install -y locales
+    if ! pct exec '\''$LXC_ID'\'' -- dpkg -s locales > /dev/null 2>&1; then
+        echo "Installing locales in LXC..."
+        pct exec '\''$LXC_ID'\'' -- apt-get update
+        pct exec '\''$LXC_ID'\'' -- apt-get install -y locales
     fi
-    echo 'Generating locales...'
-    pct exec $LXC_ID -- locale-gen en_US.UTF-8
-    pct exec $LXC_ID -- locale-gen es_MX.UTF-8
-    pct exec $LXC_ID -- update-locale
+    echo "Generating locales..."
+    pct exec '\''$LXC_ID'\'' -- locale-gen en_US.UTF-8
+    pct exec '\''$LXC_ID'\'' -- locale-gen es_MX.UTF-8
+    pct exec '\''$LXC_ID'\'' -- update-locale
 
-    if ! pct exec $LXC_ID -- which $TARGET_PY > /dev/null 2>&1; then
-        echo 'Required Python version $TARGET_PY not found in LXC. Attempting install...'
-        pct exec $LXC_ID -- apt-get update
-        pct exec $LXC_ID -- apt-get install -y $TARGET_PY ${TARGET_PY}-venv
+    if ! pct exec '\''$LXC_ID'\'' -- which '\''$TARGET_PY'\'' > /dev/null 2>&1; then
+        echo "Required Python version '\''$TARGET_PY'\'' not found in LXC. Attempting install..."
+        pct exec '\''$LXC_ID'\'' -- apt-get update
+        pct exec '\''$LXC_ID'\'' -- apt-get install -y '\''$TARGET_PY'\'' '\''${TARGET_PY}-venv'\''
     else
-        echo 'Python $TARGET_PY is already available in LXC.'
+        echo "Python '\''$TARGET_PY'\'' is already available in LXC."
     fi
 
-    echo 'Installing Firefox...'
-    pct exec $LXC_ID -- apt-get update
-    pct exec $LXC_ID -- apt-get install -y firefox curl
+    echo "Installing Firefox..."
+    pct exec '\''$LXC_ID'\'' -- apt-get update
+    pct exec '\''$LXC_ID'\'' -- apt-get install -y firefox curl
     
-    echo 'Installing Geckodriver manually...'
-    pct exec $LXC_ID -- bash -c "
+    echo "Installing Geckodriver manually..."
+    pct exec '\''$LXC_ID'\'' -- bash -c '\''
         if ! which geckodriver > /dev/null 2>&1; then
-            echo 'Downloading latest geckodriver...'
-            V=\$(curl -s https://api.github.com/repos/mozilla/geckodriver/releases/latest | grep 'tag_name' | cut -d '\"' -f 4)
-            URL=\"https://github.com/mozilla/geckodriver/releases/download/\$V/geckodriver-\$V-linux64.tar.gz\"
-            curl -L \"\$URL\" | tar xz -C /usr/local/bin
+            echo "Downloading latest geckodriver..."
+            V=$(curl -s https://api.github.com/repos/mozilla/geckodriver/releases/latest | grep "tag_name" | cut -d "\"" -f 4)
+            URL="https://github.com/mozilla/geckodriver/releases/download/$V/geckodriver-$V-linux64.tar.gz"
+            curl -L "$URL" | tar xz -C /usr/local/bin
             chmod +x /usr/local/bin/geckodriver
-            echo 'Geckodriver installed successfully.'
+            echo "Geckodriver installed successfully."
         else
-            echo 'Geckodriver already installed.'
+            echo "Geckodriver already installed."
         fi
-    "
-"
+    '\''
+'\''
 
 echo "2. Pushing changes to GitHub..."
 git push origin master
