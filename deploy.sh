@@ -51,6 +51,10 @@ sshpass -p "$PROXMOX_PASSWORD" ssh "$PROXMOX_USER@$PROXMOX_HOST" "
     else
         echo 'Python $TARGET_PY is already available in LXC.'
     fi
+
+    echo 'Installing Firefox and Geckodriver...'
+    pct exec $LXC_ID -- apt-get update
+    pct exec $LXC_ID -- apt-get install -y firefox geckodriver
 "
 
 echo "2. Pushing changes to GitHub..."
