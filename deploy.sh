@@ -97,6 +97,9 @@ sshpass -p "$PROXMOX_PASSWORD" ssh "$PROXMOX_USER@$PROXMOX_HOST" "pct exec $LXC_
     fi
     
     cd \"$PROJECT_DIR\" || exit 1
+    echo \"Configuring safe directory for git...\"
+    git config --global --add safe.directory \"$PROJECT_DIR\"
+    
     echo \"Pulling latest code...\"
     git pull
     
