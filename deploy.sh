@@ -1,7 +1,7 @@
 #!/bin/bash
 # deploy.sh - Run this on your development machine
 
-PROJECT_DIR="/home/rjof/Documents/logme_project"
+PROJECT_DIR="/home/rjof/Documents/logme"
 VENV_DIR="/home/rjof/virtual_environments/logme"
 
 # 1. Load configuration from .env
