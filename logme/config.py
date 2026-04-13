@@ -16,7 +16,10 @@ config_parser.optionxform=str
 
 def init_app(db_path: str) -> int:
     """Initialize the application."""
-    database_code = init_database(db_path)
+    config_code = _init_config_file()
+    if config_code != SUCCESS:
+        return config_code
+    database_code = _create_database(db_path)
     if database_code != SUCCESS:
         return database_code
     # zones_code = _create_zone_paths
@@ -27,24 +30,27 @@ def init_app(db_path: str) -> int:
 
 def _init_config_file() -> int:
     try:
-        CONFIG_DIR_PATH.mkdir(exist_ok=False)
+        CONFIG_DIR_PATH.mkdir(parents=True, exist_ok=True)
     except OSError:
         return DIR_ERROR
-    try:
-        CONFIG_FILE_PATH.touch(exist_ok=True)
-    except OSError:
-        return FILE_ERROR
     return SUCCESS
 
 
 def _create_database(db_path: str) -> int:
-    config_parser["General"] = {"database": db_path}
-    # # @todo
-    # # create the variable
-    # config_parser["LocalPaths"] = {"storage": "/home/rjof/logme_data"}
-    # config_parser["LocalPaths"] = {"logs_path": "/home/rjof/logme_data/logs"}
-    # config_parser["LocalPaths"] = {"landing_path": "/home/rjof/logme_data/landing"}
-    # config_parser["LocalPaths"] = {"history_path": "/home/rjof/logme_data/history"}
+    base_data_path = Path.home() / "logme_data"
+    config_parser["General"] = {
+        "database": db_path,
+        "base_path": str(base_data_path)
+    }
+    config_parser["LocalPaths"] = {
+        "storage": str(base_data_path),
+        "logs_path": str(base_data_path / "logs"),
+        "landing_path": str(base_data_path / "landing"),
+        "history_path": str(base_data_path / "history"),
+    }
+    config_parser["Sources"] = {
+        "src": "aTimeLogger,duolingo,koreaderStatistics,koreaderClipping,instagram,Multi_Timer"
+    }
     try:
         with CONFIG_FILE_PATH.open("w") as file:
             config_parser.write(file)

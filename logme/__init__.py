@@ -71,28 +71,44 @@ creds_dict = {
     "dropbox_refresh_token": environ.get('dropbox_refresh_token')
 }
 
+# Default values to avoid NameError if config is missing or incomplete
+DATA_PATH = str(Path.home() / "logme_data")
+logs_path = str(Path.home() / "logme_data" / "logs")
+landing_path = str(Path.home() / "logme_data" / "landing")
+history_path = str(Path.home() / "logme_data" / "history")
+sourcesList = ["aTimeLogger", "duolingo", "koreaderStatistics", "koreaderClipping", "instagram", "Multi_Timer"]
+duolingo_languages = []
+duolingo_end_points = []
+base_path = str(Path.home() / "logme_data")
+
 config_parser = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
 config_parser.optionxform=str
 try:
-    config_parser.read(CONFIG_FILE_PATH)
-    base_path = config_parser.get("General", "base_path")
-    DATA_PATH = config_parser.get("LocalPaths","storage")
-    logs_path = config_parser.get("LocalPaths","logs_path")
-    landing_path = config_parser.get("LocalPaths","landing_path")
-    history_path = config_parser.get("LocalPaths","history_path")
-    sourcesList = config_parser.get("Sources", "src").split(",")
-    duolingo_languages = config_parser.get("duolingo", "languages").split(",")
-    duolingo_end_points = config_parser.get("duolingo", "end_points").split(",")
-    # instagram_tmpdir = config_parser.get("instagram", "tmpdir")
-    # instagram_external_hdd = config_parser.get("instagram","external_hdd")
-    # instagram_cookiefile = config_parser.get("instagram", "cookiefile")
-    # instagram_sessionfile = config_parser.get("instagram","sessionfile")
-except:
-    FILE_ERROR
+    if CONFIG_FILE_PATH.exists():
+        config_parser.read(CONFIG_FILE_PATH)
+        if config_parser.has_section("General"):
+            base_path = config_parser.get("General", "base_path", fallback=base_path)
+        if config_parser.has_section("LocalPaths"):
+            DATA_PATH = config_parser.get("LocalPaths","storage", fallback=DATA_PATH)
+            logs_path = config_parser.get("LocalPaths","logs_path", fallback=logs_path)
+            landing_path = config_parser.get("LocalPaths","landing_path", fallback=landing_path)
+            history_path = config_parser.get("LocalPaths","history_path", fallback=history_path)
+        if config_parser.has_section("Sources"):
+            sourcesList = config_parser.get("Sources", "src", fallback=",".join(sourcesList)).split(",")
+        if config_parser.has_section("duolingo"):
+            duolingo_languages = config_parser.get("duolingo", "languages", fallback="").split(",")
+            duolingo_end_points = config_parser.get("duolingo", "end_points", fallback="").split(",")
+except Exception as e:
+    # We can't log here yet because logger is not initialized, so we just pass
+    pass
 
 logger = logging.getLogger(__app_name__)
 if not path.exists(logs_path):
-    mkdir(logs_path)
+    try:
+        makedirs(logs_path, exist_ok=True)
+    except OSError:
+        # If we can't create logs dir, we'll probably fail later anyway
+        pass
 logger_file = f'{logs_path}/{date_time}.log'
 logging.basicConfig(format='%(asctime)s [%(levelname)s] [%(name)s] %(message)s',
                     filename=logger_file,

@@ -16,24 +16,29 @@ from logme.utils.Utils import get_database_path
 logger = logging.getLogger('ProcessingUtils')
 
 
-if config.CONFIG_FILE_PATH.exists():
-    db_path = get_database_path(config.CONFIG_FILE_PATH)
-else:
-    typer.secho(
-        'Config file not found. Please, run "logme init"',
-        fg=typer.colors.RED,
-    )
-    raise typer.Exit(1)
-if not db_path.exists():
-    typer.secho(
-        'Database not found. Please, run "logme init"',
-        fg=typer.colors.RED,
-    )
-    print(f'db_path: {db_path}')
-    raise typer.Exit(1)
-_db_handler = DatabaseHandler(db_path)
+_db_handler = None
+db_path = None
 
-db = DatabaseHandler(db_path)
+def get_db_handler():
+    global _db_handler, db_path
+    if _db_handler is None:
+        if config.CONFIG_FILE_PATH.exists():
+            db_path = get_database_path(config.CONFIG_FILE_PATH)
+        else:
+            typer.secho(
+                'Config file not found. Please, run "logme init"',
+                fg=typer.colors.RED,
+            )
+            raise typer.Exit(1)
+        if not db_path.exists():
+            typer.secho(
+                'Database not found. Please, run "logme init"',
+                fg=typer.colors.RED,
+            )
+            print(f'db_path: {db_path}')
+            raise typer.Exit(1)
+        _db_handler = DatabaseHandler(db_path)
+    return _db_handler
 
 def _are_headers_correct(files, conf) -> bool:
     correct_headers = False
@@ -57,7 +62,8 @@ def _are_field_types_correct() -> int:
 # Move to database.py
 def _table_exists(table_name: str) -> bool:
     exists = False
-    df, err = _db_handler._list_tables()
+    handler = get_db_handler()
+    df, err = handler._list_tables()
     if err != SUCCESS:
         msg = f"Database was not found or readable."
         raise Exception(msg)
@@ -70,6 +76,7 @@ def _table_exists(table_name: str) -> bool:
 # Move to database.py
 def _create_table(sql_query: str) -> int:
     logger.info(f'Creating table: {sql_query}')
+    get_db_handler() # Ensure db_path is set
     try:
         sqlite_db = f"sqlite:///{db_path}"
         engine = create_engine(sqlite_db, echo=True)
@@ -103,7 +110,8 @@ def _ingest_file_to_db(file:str, table: str, conf: dict) -> pd.DataFrame:
         df = _add_hash(df)
         df['src_file'] = file
         df['ingest_timestamp'] = now_ts
-        res = _db_handler.df_to_db(df, table)
+        handler = get_db_handler()
+        res = handler.df_to_db(df, table)
         return df
     return DB_WRITE_ERROR
 

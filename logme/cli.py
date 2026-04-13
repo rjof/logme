@@ -6,7 +6,7 @@ from typing import List, Optional
 import typer
 from logme import ERRORS, __app_name__, __version__, config, sourcesList
 from logme.logme import source_trigger
-from logme.storage.database import DEFAULT_DB_FILE_PATH
+from logme.storage.database import DEFAULT_DB_FILE_PATH, DatabaseHandler
 import logme.utils.Utils as u
 
 app = typer.Typer()
@@ -28,8 +28,9 @@ def init(
             fg=typer.colors.RED,
         )
         raise typer.Exit(1)
-    dst = u.get_local_storage_path(config.CONFIG_FILE_PATH)
-    db_init_error = logme.storage.database.DatabaseHandler.init_database(Path(db_path))
+    
+    db_handler = DatabaseHandler(Path(db_path))
+    db_init_error = db_handler.init_database()
     if db_init_error:
         typer.secho(
             f"Creating database failed with " f'"{ERRORS[db_init_error]}"',
