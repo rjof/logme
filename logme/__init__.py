@@ -1,6 +1,6 @@
 """Top-level package for logme."""
 
-from os import path, environ, mkdir
+from os import path, environ, mkdir, makedirs
 import sys, shutil
 import collections
 from pathlib import Path
@@ -29,6 +29,7 @@ config_resource_file = resource_path = path.join(path.split(__file__)[0], "resou
 config_file = Path(config_resource_file) / "config.ini.example"
 
 if path.isfile(CONFIG_FILE_PATH) == False:
+    CONFIG_DIR_PATH.mkdir(parents=True, exist_ok=True)
     shutil.copy(config_file, CONFIG_FILE_PATH)
 
 (
