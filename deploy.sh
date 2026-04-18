@@ -127,10 +127,34 @@ sshpass -p "$PROXMOX_PASSWORD" ssh "$PROXMOX_USER@$PROXMOX_HOST" "pct exec $LXC_
         $TARGET_PY -m venv '$VENV_DIR'
     fi
     
+    echo 'Checking for SSH keys...'
+    if [ ! -f $HOME/.ssh/id_ed25519 ]; then
+        echo 'Generating new SSH key...'
+        mkdir -p ~/.ssh
+        ssh-keygen -t ed25519 -C 'lxc-logme-deploy' -N '' -f $HOME/.ssh/id_ed25519
+        echo '-------------------------------------------------------'
+        echo 'NEW SSH KEY GENERATED. Please add this to GitHub:'
+        cat ~/.ssh/id_ed25519.pub
+        echo '-------------------------------------------------------'
+        echo 'Waiting 10 seconds for you to copy it... (or press Ctrl+C to abort and add it first)'
+        sleep 10
+    else
+        echo 'SSH key already exists.'
+    fi
+
     cd '$PROJECT_DIR' || exit 1
     echo 'Configuring safe directory for git...'
     git config --global --add safe.directory '$PROJECT_DIR'
     
+    # Ensure remote is SSH
+    CURRENT_REMOTE=\$(git remote get-url origin)
+    if [[ \$CURRENT_REMOTE == https* ]]; then
+        echo "Converting HTTPS remote to SSH..."
+        # Extract user/repo from https://github.com/user/repo.git
+        REPO_PATH=\$(echo \$CURRENT_REMOTE | sed 's|https://github.com/||')
+        git remote set-url origin "git@github.com:\${REPO_PATH}"
+    fi
+
     echo 'Pulling latest code...'
     git pull
     
