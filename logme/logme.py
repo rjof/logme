@@ -32,13 +32,13 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def source_trigger(src: str = None, amount: int = 0) -> None:
+def source_trigger(src: str = None, amount: int = 0, browser: str = "firefox") -> None:
     from logme.ingestors.InstagramIngestor import InstagramIngestor
     from logme.processors import Multi_TimerProcessor
     from logme.connectors import GoogleDrive
     from logme.connectors import Dropbox
     
-    logger.info(f"source_trigger src: {src}")
+    logger.info(f"source_trigger src: {src}, browser: {browser}")
     dst_path = Path(
         u.get_local_storage_path(config.CONFIG_FILE_PATH)
         / "landing"
@@ -46,6 +46,7 @@ def source_trigger(src: str = None, amount: int = 0) -> None:
         / f"{date_time}"
     )
     conf = u.get_source_conf(src, src)
+    conf["browser"] = browser
     conf_raw_to_l1 = u.get_source_conf(src, f"{src}_raw_to_l1")
     match (src):
         case "aTimeLogger":

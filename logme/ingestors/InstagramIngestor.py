@@ -9,6 +9,7 @@ from itertools import dropwhile, takewhile
 from sqlite3 import OperationalError, connect
 from os import environ
 from logme.ddl.InstagramRow import InstagramRow
+from selenium.webdriver.firefox.service import Service as FirefoxService
 
 # try:
 #     from instaloader import ConnectionException, Instaloader
@@ -129,24 +130,50 @@ class InstagramIngestor:
             InstagramIngestor.teardown(driver)
 
     def setup_selenium(self):
-        self.logger.info("Setting up Selenium with injected cookies...")
-        options = webdriver.FirefoxOptions()
-        options.add_argument("--headless")
+        browser = self.conf.get("browser", "firefox").lower()
+        self.logger.info(f"Setting up Selenium with {browser}...")
         
-        # Check for common geckodriver paths, otherwise rely on PATH
-        gecko_path = None
-        for path in ["/usr/local/bin/geckodriver", "/snap/bin/geckodriver", "/usr/bin/geckodriver"]:
-            if os.path.exists(path):
-                gecko_path = path
-                break
-        
-        if gecko_path:
-            self.logger.info(f"Using geckodriver at {gecko_path}")
-            service = webdriver.FirefoxService(executable_path=gecko_path)
-            driver = webdriver.Firefox(service=service, options=options)
+        if browser == "chrome":
+            from selenium.webdriver.chrome.service import Service as ChromeService
+            from selenium.webdriver.chrome.options import Options as ChromeOptions
+            options = ChromeOptions()
+            options.add_argument("--headless")
+            options.add_argument("--no-sandbox")
+            options.add_argument("--disable-dev-shm-usage")
+            
+            # Check for common chromedriver paths
+            chrome_path = None
+            for path in ["/usr/bin/chromedriver", "/usr/local/bin/chromedriver", "/snap/bin/chromedriver"]:
+                if os.path.exists(path):
+                    chrome_path = path
+                    break
+            
+            if chrome_path:
+                self.logger.info(f"Using chromedriver at {chrome_path}")
+                service = ChromeService(executable_path=chrome_path)
+                driver = webdriver.Chrome(service=service, options=options)
+            else:
+                self.logger.info("Chromedriver not found in common paths, relying on system PATH")
+                driver = webdriver.Chrome(options=options)
         else:
-            self.logger.info("Geckodriver not found in common paths, relying on system PATH")
-            driver = webdriver.Firefox(options=options)
+            options = webdriver.FirefoxOptions()
+            options.add_argument("--headless")
+            
+            # Check for common geckodriver paths, otherwise rely on PATH
+            gecko_path = None
+            for path in ["/usr/local/bin/geckodriver", "/snap/bin/geckodriver", "/usr/bin/geckodriver"]:
+                if os.path.exists(path):
+                    gecko_path = path
+                    break
+            
+            if gecko_path:
+                self.logger.info(f"Using geckodriver at {gecko_path}")
+                from selenium.webdriver.firefox.service import Service as FirefoxService
+                service = FirefoxService(executable_path=gecko_path)
+                driver = webdriver.Firefox(service=service, options=options)
+            else:
+                self.logger.info("Geckodriver not found in common paths, relying on system PATH")
+                driver = webdriver.Firefox(options=options)
             
         driver.set_page_load_timeout(60)
         
@@ -155,50 +182,64 @@ class InstagramIngestor:
             driver.get("https://www.instagram.com/")
             time.sleep(3)
             
-            # Inject cookies from Firefox profile
-            cookie_db = self.conf["cookiefile"]
-            if os.path.exists(cookie_db):
-                self.logger.info(f"Injecting cookies from {cookie_db}")
-                # Use a temporary copy to avoid locking issues
-                temp_db = "temp_cookies_selenium.sqlite"
-                shutil.copy(cookie_db, temp_db)
-                
-                import sqlite3
-                conn = sqlite3.connect(temp_db)
-                cursor = conn.cursor()
-                cursor.execute("SELECT name, value, host, path, expiry FROM moz_cookies WHERE host LIKE '%instagram.com'")
-                cookies = cursor.fetchall()
-                conn.close()
-                os.remove(temp_db)
-                
-                for name, value, host, path, expiry in cookies:
-                    cookie_dict = {
-                        'name': name,
-                        'value': value,
-                        'domain': host,
-                        'path': path,
-                    }
-                    try:
-                        driver.add_cookie(cookie_dict)
-                    except:
-                        pass
-                self.logger.info("Cookies injected.")
+            if browser == "firefox":
+                # Inject cookies from Firefox profile
+                cookie_db = self.conf["cookiefile"]
+                if os.path.exists(cookie_db):
+                    self.logger.info(f"Injecting cookies from {cookie_db}")
+                    # Use a temporary copy to avoid locking issues
+                    temp_db = "temp_cookies_selenium.sqlite"
+                    shutil.copy(cookie_db, temp_db)
+                    
+                    import sqlite3
+                    conn = sqlite3.connect(temp_db)
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT name, value, host, path, expiry FROM moz_cookies WHERE host LIKE '%instagram.com'")
+                    cookies = cursor.fetchall()
+                    conn.close()
+                    os.remove(temp_db)
+                    
+                    for name, value, host, path, expiry in cookies:
+                        cookie_dict = {
+                            'name': name,
+                            'value': value,
+                            'domain': host,
+                            'path': path,
+                        }
+                        try:
+                            driver.add_cookie(cookie_dict)
+                        except:
+                            pass
+                    self.logger.info("Cookies injected.")
+                else:
+                    self.logger.warning(f"Cookie file not found: {cookie_db}. Attempting manual login.")
+                    self._manual_login(driver)
             else:
-                self.logger.warning(f"Cookie file not found: {cookie_db}. Attempting manual login.")
-                # Fallback to manual login if needed
-                driver.get("https://www.instagram.com/accounts/login/")
-                driver.implicitly_wait(10)
-                username_box = driver.find_element(by=By.NAME, value="email")
-                password_box = driver.find_element(by=By.NAME, value="pass")
-                username_box.send_keys(self.USER)
-                password_box.send_keys(self.PASSWORD)
-                login_button = driver.find_element(by=By.XPATH, value='//*[@aria-label="Log In"]')
-                login_button.click()
-                time.sleep(5)
+                self.logger.info("Cookie injection for Chrome not implemented. Attempting manual login.")
+                self._manual_login(driver)
+                
         except Exception as e:
             self.logger.error(f"Error in setup_selenium: {e}")
             
         return driver
+
+    def _manual_login(self, driver):
+        try:
+            driver.get("https://www.instagram.com/accounts/login/")
+            time.sleep(5)
+            # Use specific selectors for Instagram login
+            username_input = driver.find_element(By.NAME, "username")
+            password_input = driver.find_element(By.NAME, "password")
+            
+            username_input.send_keys(self.USER)
+            password_input.send_keys(self.PASSWORD)
+            
+            login_button = driver.find_element(By.XPATH, "//button[@type='submit']")
+            login_button.click()
+            time.sleep(10)
+            self.logger.info("Manual login attempt completed.")
+        except Exception as e:
+            self.logger.error(f"Manual login failed: {e}")
 
     @staticmethod
     def teardown(driver):
