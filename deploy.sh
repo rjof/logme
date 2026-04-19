@@ -155,10 +155,25 @@ sshpass -p "$PROXMOX_PASSWORD" ssh "$PROXMOX_USER@$PROXMOX_HOST" "
 "
 rm /tmp/logme_config.tar.gz
 
+# Sync .env
+echo "Syncing .env file..."
+sshpass -p "$PROXMOX_PASSWORD" scp .env "$PROXMOX_USER@$PROXMOX_HOST:/tmp/.env"
+sshpass -p "$PROXMOX_PASSWORD" ssh "$PROXMOX_USER@$PROXMOX_HOST" "
+    export LC_ALL=C
+    pct push $LXC_ID /tmp/.env /home/rjof/Documents/logme/.env
+    pct exec $LXC_ID -- chown rjof:rjof /home/rjof/Documents/logme/.env
+    rm /tmp/.env
+"
+
 echo "4. Updating LXC Code and Virtual Environment..."
 sshpass -p "$PROXMOX_PASSWORD" ssh "$PROXMOX_USER@$PROXMOX_HOST" "pct exec $LXC_ID -- su - rjof -c 'bash -s' << 'EOF_INNER'
     VENV_DIR=\"/home/rjof/virtual_environments/logme\"
     PROJECT_DIR=\"/home/rjof/Documents/logme\"
+    
+    # Load .env variables
+    if [ -f \"\$PROJECT_DIR/.env\" ]; then
+        export \$(grep -v '^#' \"\$PROJECT_DIR/.env\" | xargs)
+    fi
     export LC_ALL=en_US.UTF-8
     
     mkdir -p \"\$(dirname \"\$VENV_DIR\")\"
