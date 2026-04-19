@@ -2,6 +2,8 @@ from logme.storage.database import DatabaseHandler
 import argparse, numpy as np, sys
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 import json, glob, shutil, os, instaloader, logging, typer, time
 from datetime import datetime
 from itertools import dropwhile, takewhile
@@ -11,10 +13,6 @@ from os import environ
 from logme.ddl.InstagramRow import InstagramRow
 from selenium.webdriver.firefox.service import Service as FirefoxService
 
-# try:
-#     from instaloader import ConnectionException, Instaloader
-# except ModuleNotFoundError:
-#     raise SystemExit("Instaloader not found.\n  pip install [--user] instaloader")
 try:
     import lzma
 except ImportError:
@@ -27,9 +25,7 @@ from logme import (
     config,
     SUCCESS,
     now_ts,
-)  # , instagram_tmpdir, instagram_external_hdd, instagram_cookiefile, instagram_sessionfile)
-
-# from logme.storage.database import *
+)
 import logme.utils.Utils as u
 
 
@@ -46,66 +42,45 @@ class InstagramIngestor:
         )
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logger.info("Starting InstagramIngest")
-        # TMPDIR = "../savedTmp"
-        # EXTERNAL_HDD = "/media/rjof/toshiba/rjof/instagram/instaloader/saved/"
         self.USER = environ.get("instagram_user")
         self.logger.info(f"USER: {self.USER}")
         self.PASSWORD = environ.get("instagram_password")
-        # USER = "errejotaoefe"
-        # PASSWORD = "w5A0#@ti7GvATesbNFj"
-        # cookiefile = environ.get('firefox_cookiesfile') # clean "/home/rjof/snap/firefox/common/.mozilla/firefox/ycxcs1wp.default/cookies.sqlite"
-        # sessionfile = environ.get('instaloader_sessionfile') # clean "/home/rjof/.config/instaloader/session-errejotaoefe"
         self.SESSIONFILE = Path(self.conf["sessionfile"])
+        
         if self.ProcessingUtils._table_exists(f"{self.src}_raw") != True:
             self.logger.info(f"Creating raw table {self.src}_raw")
             query = self.ProcessingUtils._query_from_list_of_fields(
                 self.src, "raw", self.conf["fields"], self.conf["fields_format"]
             )
-            # print(query)
             if self.ProcessingUtils._create_table(query) != SUCCESS:
                 raise typer.Exit(f"Error creating {self.src}_raw")
 
         if config.CONFIG_FILE_PATH.exists():
             db_path = get_database_path(config.CONFIG_FILE_PATH)
         else:
-            typer.secho(
-                'Config file not found. Please, run "logme init"',
-                fg=typer.colors.RED,
-            )
+            typer.secho('Config file not found. Please, run "logme init"', fg=typer.colors.RED)
             raise typer.Exit(1)
+            
         if not db_path.exists():
-            typer.secho(
-                'Database not found. Please, run "logme init"',
-                fg=typer.colors.RED,
-            )
+            typer.secho('Database not found. Please, run "logme init"', fg=typer.colors.RED)
             raise typer.Exit(1)
         self._db_handler = DatabaseHandler(db_path)
 
     def instaloader_import_session(self):
-        self.logger.info(
-            "################### Get session cookie form firefox #######################"
-        )
-        # Connects using selenium
+        self.logger.info("################### Get session cookie form firefox #######################")
         driver = self.setup_selenium()
-
-        # Refresh the instaloader session
         self.logger.info("Using cookies from {}.".format(self.conf["cookiefile"]))
         conn = connect(f"file:{self.conf['cookiefile']}?immutable=1", uri=True)
         try:
-            cookie_data = conn.execute(
-                "SELECT name, value FROM moz_cookies WHERE baseDomain='instagram.com'"
-            )
+            cookie_data = conn.execute("SELECT name, value FROM moz_cookies WHERE baseDomain='instagram.com'")
         except OperationalError:
-            cookie_data = conn.execute(
-                "SELECT name, value FROM moz_cookies WHERE host LIKE '%instagram.com'"
-            )
+            cookie_data = conn.execute("SELECT name, value FROM moz_cookies WHERE host LIKE '%instagram.com'")
+        
         L = instaloader.Instaloader(max_connection_attempts=1)
         L.context._session.cookies.update(cookie_data)
         username = L.test_login()
         if not username:
-            raise SystemExit(
-                "Not logged in. Are you logged in successfully in Firefox?"
-            )
+            raise SystemExit("Not logged in. Are you logged in successfully in Firefox?")
         self.logger.info("Imported session cookie for {}.".format(username))
         L.context.username = username
         L.save_session_to_file(self.SESSIONFILE)
@@ -140,8 +115,9 @@ class InstagramIngestor:
             options.add_argument("--headless")
             options.add_argument("--no-sandbox")
             options.add_argument("--disable-dev-shm-usage")
+            options.add_argument("--window-size=1920,1080")
+            options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
             
-            # Check for common chromedriver paths
             chrome_path = None
             for path in ["/usr/bin/chromedriver", "/usr/local/bin/chromedriver", "/snap/bin/chromedriver"]:
                 if os.path.exists(path):
@@ -158,88 +134,257 @@ class InstagramIngestor:
         else:
             options = webdriver.FirefoxOptions()
             options.add_argument("--headless")
-            
-            # Check for common geckodriver paths, otherwise rely on PATH
             gecko_path = None
             for path in ["/usr/local/bin/geckodriver", "/snap/bin/geckodriver", "/usr/bin/geckodriver"]:
                 if os.path.exists(path):
                     gecko_path = path
                     break
-            
             if gecko_path:
-                self.logger.info(f"Using geckodriver at {gecko_path}")
-                from selenium.webdriver.firefox.service import Service as FirefoxService
                 service = FirefoxService(executable_path=gecko_path)
                 driver = webdriver.Firefox(service=service, options=options)
             else:
-                self.logger.info("Geckodriver not found in common paths, relying on system PATH")
                 driver = webdriver.Firefox(options=options)
             
         driver.set_page_load_timeout(60)
         
         try:
-            # Set domain context
+            # Domain must be loaded before adding cookies
             driver.get("https://www.instagram.com/")
-            time.sleep(3)
+            time.sleep(5)
             
-            if browser == "firefox":
-                # Inject cookies from Firefox profile
-                cookie_db = self.conf["cookiefile"]
-                if os.path.exists(cookie_db):
-                    self.logger.info(f"Injecting cookies from {cookie_db}")
-                    # Use a temporary copy to avoid locking issues
-                    temp_db = "temp_cookies_selenium.sqlite"
-                    shutil.copy(cookie_db, temp_db)
-                    
-                    import sqlite3
-                    conn = sqlite3.connect(temp_db)
-                    cursor = conn.cursor()
-                    cursor.execute("SELECT name, value, host, path, expiry FROM moz_cookies WHERE host LIKE '%instagram.com'")
-                    cookies = cursor.fetchall()
-                    conn.close()
-                    os.remove(temp_db)
-                    
-                    for name, value, host, path, expiry in cookies:
-                        cookie_dict = {
-                            'name': name,
-                            'value': value,
-                            'domain': host,
-                            'path': path,
-                        }
-                        try:
-                            driver.add_cookie(cookie_dict)
-                        except:
-                            pass
-                    self.logger.info("Cookies injected.")
-                else:
-                    self.logger.warning(f"Cookie file not found: {cookie_db}. Attempting manual login.")
-                    self._manual_login(driver)
-            else:
-                self.logger.info("Cookie injection for Chrome not implemented. Attempting manual login.")
-                self._manual_login(driver)
+            # Try to inject cookies from Instaloader session first (portable)
+            if self._inject_cookies_from_instaloader(driver):
+                self.logger.info("Cookies injected from Instaloader session.")
+                driver.get("https://www.instagram.com/") # Refresh with cookies
+                time.sleep(5)
+            
+            # Check if we are logged in
+            if "login" in driver.current_url or not self._is_logged_in(driver):
+                self.logger.warning("Not logged in via Instaloader cookies. Trying Firefox cookiefile fallback...")
                 
+                if browser == "firefox":
+                    cookie_db = self.conf["cookiefile"]
+                    if os.path.exists(cookie_db):
+                        self.logger.info(f"Injecting cookies from {cookie_db}")
+                        temp_db = "temp_cookies_selenium.sqlite"
+                        shutil.copy(cookie_db, temp_db)
+                        import sqlite3
+                        conn = sqlite3.connect(temp_db)
+                        cursor = conn.cursor()
+                        cursor.execute("SELECT name, value, host, path, expiry FROM moz_cookies WHERE host LIKE '%instagram.com'")
+                        cookies = cursor.fetchall()
+                        conn.close()
+                        os.remove(temp_db)
+                        for name, value, host, path, expiry in cookies:
+                            cookie_dict = {'name': name, 'value': value, 'domain': host, 'path': path}
+                            try:
+                                driver.add_cookie(cookie_dict)
+                            except:
+                                pass
+                        driver.get("https://www.instagram.com/")
+                        time.sleep(5)
+
+                if "login" in driver.current_url or not self._is_logged_in(driver):
+                    self.logger.warning("Still not logged in. Attempting manual login.")
+                    self._manual_login(driver)
         except Exception as e:
             self.logger.error(f"Error in setup_selenium: {e}")
             
         return driver
 
+    def _inject_cookies_from_instaloader(self, driver):
+        try:
+            if not self.SESSIONFILE.exists():
+                return False
+                
+            self.logger.info(f"Reading cookies from {self.SESSIONFILE}")
+            L = instaloader.Instaloader()
+            L.load_session_from_file(self.USER, self.SESSIONFILE)
+            
+            # instaloader session.cookies is a RequestsCookieJar
+            for cookie in L.context._session.cookies:
+                cookie_dict = {
+                    'name': cookie.name,
+                    'value': cookie.value,
+                    'domain': cookie.domain,
+                    'path': cookie.path,
+                    'secure': cookie.secure
+                }
+                if cookie.expires:
+                    cookie_dict['expiry'] = cookie.expires
+                
+                try:
+                    driver.add_cookie(cookie_dict)
+                except Exception as e:
+                    self.logger.debug(f"Could not add cookie {cookie.name}: {e}")
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to inject Instaloader cookies: {e}")
+            return False
+
+    def _is_logged_in(self, driver):
+        # Quick check for logged-in UI elements
+        try:
+            driver.find_element(By.XPATH, "//*[@aria-label='Home'] | //*[@aria-label='Search'] | //*[@aria-label='New post']")
+            return True
+        except:
+            return False
+
     def _manual_login(self, driver):
         try:
+            self.logger.info("Navigating to login page...")
             driver.get("https://www.instagram.com/accounts/login/")
-            time.sleep(5)
-            # Use specific selectors for Instagram login
-            username_input = driver.find_element(By.NAME, "username")
-            password_input = driver.find_element(By.NAME, "password")
+            wait = WebDriverWait(driver, 20)
             
+            # Handle Cookie Consent aggressively
+            try:
+                self.logger.info("Checking for cookie consent...")
+                # Multiple possible cookie buttons
+                cookie_selectors = [
+                    "//button[contains(text(), 'Allow all cookies')]",
+                    "//button[contains(text(), 'Allow essential and optional cookies')]",
+                    "//button[contains(text(), 'Accept All')]",
+                    "//button[text()='Decline optional cookies']" # Sometimes works better
+                ]
+                for selector in cookie_selectors:
+                    try:
+                        cookie_button = driver.find_element(By.XPATH, selector)
+                        if cookie_button.is_displayed():
+                            cookie_button.click()
+                            self.logger.info(f"Dismissed cookie consent with: {selector}")
+                            time.sleep(2)
+                            break
+                    except:
+                        continue
+            except:
+                self.logger.info("Cookie consent logic finished.")
+
+            if "login" not in driver.current_url:
+                self.logger.info(f"Already logged in. Current URL: {driver.current_url}")
+                return
+
+            self.logger.info(f"Attempting manual login for user: {self.USER}")
+            
+            # Ensure elements are interactable
+            username_selectors = [
+                (By.NAME, "username"),
+                (By.NAME, "email"),
+                (By.CSS_SELECTOR, "input[name='username']"),
+                (By.CSS_SELECTOR, "input[name='email']")
+            ]
+            
+            username_input = None
+            for by, selector in username_selectors:
+                try:
+                    element = wait.until(EC.element_to_be_clickable((by, selector)))
+                    self.logger.info(f"Found interactable username field with: {selector}")
+                    username_input = element
+                    break
+                except:
+                    continue
+            
+            if not username_input:
+                # If still not clickable, try JS injection as last resort
+                self.logger.warning("Username field not clickable via standard methods. Trying fallback...")
+                username_input = driver.find_element(By.XPATH, "//input[@name='username'] | //input[@name='email']")
+                driver.execute_script("arguments[0].scrollIntoView(true);", username_input)
+
+            password_selectors = [(By.NAME, "password"), (By.NAME, "pass")]
+            password_input = None
+            for by, selector in password_selectors:
+                try:
+                    password_input = wait.until(EC.element_to_be_clickable((by, selector)))
+                    self.logger.info(f"Found interactable password field with: {selector}")
+                    break
+                except:
+                    continue
+
+            if not password_input:
+                self.logger.warning("Password field not clickable via standard methods. Trying fallback...")
+                password_input = driver.find_element(By.XPATH, "//input[@name='password'] | //input[@name='pass']")
+                driver.execute_script("arguments[0].scrollIntoView(true);", password_input)
+
+            # Clear and type
+            driver.execute_script("arguments[0].value = '';", username_input)
             username_input.send_keys(self.USER)
+            driver.execute_script("arguments[0].value = '';", password_input)
             password_input.send_keys(self.PASSWORD)
             
-            login_button = driver.find_element(By.XPATH, "//button[@type='submit']")
-            login_button.click()
+            # Click login button
+            login_button_selectors = [
+                "//div[@role='button' and @aria-label='Log In']",
+                "//div[@role='button']//span[text()='Log in']",
+                "//button[@type='submit']",
+                "//input[@type='submit']",
+                "//div[@role='button' and contains(text(), 'Log in')]",
+            ]
+            
+            login_button = None
+            for selector in login_button_selectors:
+                try:
+                    # Use presence instead of element_to_be_clickable because it might be aria-disabled
+                    login_button = wait.until(EC.presence_of_element_located((By.XPATH, selector)))
+                    self.logger.info(f"Found login button with: {selector}")
+                    break
+                except:
+                    continue
+                    
+            if login_button:
+                self.logger.info("Attempting to click Log In button...")
+                try:
+                    # Try JS click immediately as it bypasses aria-disabled and overlaps
+                    driver.execute_script("arguments[0].click();", login_button)
+                    self.logger.info("JS click successful (presumably)")
+                except Exception as click_err:
+                    self.logger.warning(f"JS click failed: {click_err}. Trying standard click.")
+                    login_button.click()
+            else:
+                raise Exception("Could not find Log In button")
+
+            self.logger.info("Login button clicked.")
             time.sleep(10)
-            self.logger.info("Manual login attempt completed.")
+            
+            # Verify login success
+            if "login" in driver.current_url:
+                self.logger.error("Still on login page after clicking login button.")
+                driver.save_screenshot(f"login_fail_page_{int(time.time())}.png")
+            else:
+                self.logger.info(f"Redirected to: {driver.current_url}")
+                # Check for logged-in only elements (like the 'Home' icon or search icon)
+                try:
+                    wait.until(EC.presence_of_element_located((By.XPATH, "//*[@aria-label='Home'] | //*[@aria-label='Search'] | //*[@aria-label='New post']")))
+                    self.logger.info("Login verified via presence of nav elements.")
+                except:
+                    self.logger.warning("Could not verify login via nav elements, but not on login page.")
+            
+            self._dismiss_popups(driver)
+
         except Exception as e:
             self.logger.error(f"Manual login failed: {e}")
+            driver.save_screenshot(f"login_exception_{int(time.time())}.png")
+
+    def _dismiss_popups(self, driver):
+        self.logger.info("Checking for popups to dismiss...")
+        wait = WebDriverWait(driver, 5)
+        # List of button texts or aria-labels that indicate a 'Not Now' or close action
+        dismiss_selectors = [
+            "//button[text()='Not Now']",
+            "//button[text()='Not now']",
+            "//div[@role='button' and text()='Not now']",
+            "//div[@role='button' and text()='Not Now']",
+            "//*[@aria-label='Close']",
+            "//svg[@aria-label='Close']/ancestor::div[@role='button']"
+        ]
+        for selector in dismiss_selectors:
+            try:
+                elements = driver.find_elements(By.XPATH, selector)
+                for el in elements:
+                    if el.is_displayed():
+                        el.click()
+                        self.logger.info(f"Dismissed popup element: {selector}")
+                        time.sleep(1)
+            except:
+                continue
 
     @staticmethod
     def teardown(driver):
@@ -247,85 +392,43 @@ class InstagramIngestor:
             driver.quit()
 
     def setup_instaloader(self):
-        # Get instance
         L = instaloader.Instaloader(dirname_pattern=self.conf["tmpdir"])
-
-        # Optionally, login or load session
-        # L.login(USER, PASSWORD)        # (login)
-        # L.interactive_login(USER)      # (ask password on terminal)
-        # L.load_session_from_file(self.USER, Path("/home/rjof/.config/instaloader/session-errejotaoefe"))
         L.load_session_from_file(self.USER, self.SESSIONFILE)
         testLogin = L.test_login()
-        self.logger.info("Testing...")
         self.logger.info(f"testLogin: {testLogin}")
         return L
 
     def _is_working_offline(self):
         files = glob.glob("*xz", root_dir=self.conf["tmpdir"])
-        if len(files) == 0:
-            return False
-        else:
-            return True
+        return len(files) > 0
 
     def instaloader_process_downloaded(self) -> list[str]:
         files = glob.glob("*xz", root_dir=self.conf["tmpdir"])
         urls = []
         for file in files:
-            self.logger.info(f"Processing: {file}")
-            self.logger.info(f"instaloader_process_offline: {file}")
             tmpdir = self.conf["tmpdir"]
             jsonPost = lzma.open(f"{tmpdir}/{file}").read().decode("utf-8")
             json_obj = json.loads(jsonPost)
             df1 = pd.json_normalize(json_obj).reset_index(drop=True)
             df1.insert(loc=0, column="ingest_timestamp", value=now_ts)
             df1.insert(loc=0, column="src_file", value=file)
-            df1_cols = sorted(set(df1.columns))
-            print(f"df1 # cols: {len(df1.columns)}")
-            print(f"df1 set # cols: {len(df1_cols)}")
-            # table exists?
             table_name = "instagram_raw_2"
-            table_exists = self.ProcessingUtils._table_exists(table_name=table_name)
-            print(f"table exists: {table_exists}")
-            # pd.set_option('display.max_columns', 1000)
-            # pd.set_option('display.expand_frame_repr', True)
-            # Convert to string but restore actual NaNs
             df1 = df1.astype(str).replace("nan", np.nan)
-            print(df1.head())
-            if not table_exists:
+            
+            if not self.ProcessingUtils._table_exists(table_name=table_name):
                 self._db_handler.df_to_db(df=df1, table_name=table_name)
             else:
-                print("Get all field names in database")
                 cols_in_db = self._db_handler.fields_in_table(table_name)
-                print(f"{len(cols_in_db)} columns in database")
-                if set(df1.columns) == set(cols_in_db):
-                    print(f"Equal set of columns => save row")
-                else:
-                    print(f"Columns differ. Alter table")
+                df1_cols = sorted(set(df1.columns))
+                if set(df1.columns) != set(cols_in_db):
                     new_columns = [key for key in df1_cols if key not in cols_in_db]
-                    # print("Different columns")
-                    # print(new_columns)
                     for new_col in new_columns:
-                        self._db_handler.alter_table(
-                            table_name=table_name, new_col=new_col
-                        )
+                        self._db_handler.alter_table(table_name=table_name, new_col=new_col)
                     cols_in_db = self._db_handler.fields_in_table(table_name)
-                    print(f"{len(cols_in_db)} columns in database after alter")
+                
                 placeholders = ", ".join(["?" for _ in cols_in_db])
                 quoted_columns = ", ".join([f'"{col}"' for col in cols_in_db])
-                values = [
-                    df1[col].iloc[0] if col in df1_cols else np.nan
-                    for col in cols_in_db
-                ]
-                print(f'cols_in_db: {cols_in_db.index("node.shortcode")}')
-                print(
-                    f"""
-{values[cols_in_db.index("node.shortcode")]}: {df1['node.shortcode'].iloc[0]}
-                      """
-                )
-                shortcode_value = df1["node.shortcode"].iloc[0]
-                print(f"values (shortcode): {shortcode_value}")
-                # print(f"values (shortcode): {values[{df1['node.shortcode']}]}")
-                # print(f"values (shortcode): {df1['node.shortcode']}")
+                values = [df1[col].iloc[0] if col in df1_cols else np.nan for col in cols_in_db]
                 self._db_handler.row_to_raw_instagram(
                     table_name=table_name,
                     placeholders=placeholders,
@@ -334,228 +437,107 @@ class InstagramIngestor:
                 )
             post_url = f'https://www.instagram.com/p/{df1["node.shortcode"].iloc[0]}/'
             urls.append(post_url)
-            print(f"post_url {post_url}")
-            print(f"urls: {urls}")
-
-            # # TODO:
-            # # Field *hash* in instagram_raw is unique
-            # # If the raw was saved but the post was not
-            # for index, row in data.iterrows():
-
-            #     # print(f'created_at: {row["created_at"]}')
-            #     # print(f'text: {row["text"]}')
-            #     # print(f'shortcode: {row["shortcode"]}')
-            #     # print(f'comment_count: {row["comment_count"]}')
-            #     # print(f'edge_liked_by: {row["edge_liked_by"]}')
-            #     # print(f'owner_id: {row["owner_id"]}')
-            #     # print(f'username: {row["username"]}')
-            #     # print(f'edge_followed_by: {row["edge_followed_by"]}')
-            #     # print(f'src_file: {row["src_file"]}')
-            #     # print(f'ingest_timestamp: {["ingest_timestamp"]}')
-            #     # print(f'hash: {row["hash"]}')
-
-            #     new_post = InstagramRow(
-            #         created_at=row["created_at"],
-            #         text=row["text"],
-            #         shortcode=row["shortcode"],
-            #         comment_count=row["comment_count"],
-            #         edge_liked_by=row["edge_liked_by"],
-            #         owner_id=row["owner_id"],
-            #         username=row["username"],
-            #         edge_followed_by=row["edge_followed_by"],
-            #         src_file=file,
-            #         ingest_timestamp=now_ts,
-            #         hash=row["hash"],
-            #     )
-            #     res = self._db_handler.raw_instagram_row_to_db(new_post)
-
-            # # res = self._db_handler.df_to_db(data, f'{self.src}_raw')
-            # # prompt = input(f"Short code: {data['shortcode']}")
         return urls
 
-    def _find_key_paths(self, data, target_key, current_path=None):
-        """
-        Finds all paths to a target_key in a nested dictionary or list.
-
-        Args:
-            data (dict or list): The nested data structure to search.
-            target_key: The key to find.
-            current_path (list, optional): The current path taken to reach the
-            current level of recursion. Defaults to None.
-
-        Yields:
-            tuple: A tuple representing the path to the target_key.
-        """
-        if current_path is None:
-            current_path = []
-        if isinstance(data, dict):
-            for key, value in data.items():
-                new_path = current_path + [key]
-                if key == target_key:
-                    yield tuple(new_path)
-                if isinstance(value, (dict, list)):
-                    yield from self._find_key_paths(value, target_key, new_path)
-        elif isinstance(data, list):
-            for index, item in enumerate(data):
-                new_path = current_path + [index]
-                if isinstance(item, (dict, list)):
-                    yield from self._find_key_paths(item, target_key, new_path)
-
-    def _instaloader_json_path_exists(self, field, post) -> str:
-        path = self.conf_landing_to_raw[field].split(",")
-        path_length = len(path)
-        print(f"Looking for data under:")
-        print(path)
-        print(f"With length: {path_length}")
-        json_obj = json.loads(post)
-        vals = []
-        for e1 in self._find_key_paths(json_obj, field):
-            # If the lenght in the config equals the one
-            # in e1 the match is "perfect"
-            print("Found path")
-            print(e1)
-            print(len(e1))
-            if len(e1) == path_length:
-                print(f"The path found in the json is exact")
-            elif path_length < len(e1):
-                print(f"Found longer path. Good candidate")
-            elif path_length > len(e1):
-                print(f"The found path is smaller. Not a good candidate")
-        exit(3)
-        # o1=json_obj
-        # for k1 in e1:
-        #     if isinstance(k1,int):
-        #         k1=int(k1)
-        #     o1=o1[k1]
-        # vals.append(o1)
-        return vals
-
-    def instaloader_landing_to_raw(self, post) -> dict:
-        """
-        In the section instagram_landing_to_raw of the instagram.ini file
-        the expected path is stated for the data to be saved.
-        Some times the data is not there, so this contains the heuristic
-        to decide
-        """
-        # landing to raw
-        values = {}
-        for field in self.conf_landing_to_raw:
-            res1 = self._instaloader_json_path_exists(field, post)
-            if len(str(res1)) > 0:
-                values[field] = res1
-            else:
-                values[field] = None
-        return values
-
     def instaloader_process(self, instaloader_session, driver_session):
-        # downloads one saved post to self.conf['tmpdir']
-        res = instaloader_session.download_saved_posts(1)
+        instaloader_session.download_saved_posts(1)
         urls = self.instaloader_process_downloaded()
         self.move_to_exteranl_hdd()
-
-        # Remove from saved with selenium
-        offensive_urls = [
-            "https://www.instagram.com/p/C_b6n8Ttq05/",
-            "https://www.instagram.com/p/C_b6oJTNrqG/",
-        ]
-        for url in offensive_urls:
-            if url in urls:
-                urls.remove(url)
         return self.unsave(urls, driver_session)
 
     def move_to_exteranl_hdd(self):
-        # Move to external hdd
         file_names = os.listdir(self.conf["tmpdir"])
         for file_name in file_names:
-            print(f"Moving {file_name} to {self.conf['external_hdd']}")
             if not os.path.exists(os.path.join(self.conf["external_hdd"], file_name)):
-                shutil.move(
-                    os.path.join(self.conf["tmpdir"], file_name),
-                    os.path.join(self.conf["external_hdd"], file_name),
-                )
+                shutil.move(os.path.join(self.conf["tmpdir"], file_name),
+                           os.path.join(self.conf["external_hdd"], file_name))
             else:
                 os.remove(os.path.join(self.conf["tmpdir"], file_name))
 
     def unsave(self, urls, driver):
         next = False
+        wait = WebDriverWait(driver, 15)
         for url in urls:
             self.logger.info(f"Unsaving: {url}")
-            print(f"Unsaving: {url}")
             driver.get(url)
+            
+            # Mandatory screenshot for debugging
             time.sleep(5)
+            screenshot_path = f"unsave_debug_{int(time.time())}.png"
+            driver.save_screenshot(screenshot_path)
+            self.logger.info(f"Saved screenshot to {screenshot_path}. URL: {driver.current_url}")
+
+            if "accounts/login" in driver.current_url:
+                self.logger.warning("Redirected to login page. Attempting re-login...")
+                self._manual_login(driver)
+                driver.get(url)
+                time.sleep(5)
+            
+            # Dismiss any blocking popups (like the 'Never miss a post' signup modal)
+            self._dismiss_popups(driver)
+
             try:
-                # Multiple common selectors for Instagram's save/unsave button
-                selectors = [
-                    "//*[name()='svg' and @aria-label='Remove']",
-                    "//*[name()='svg' and @aria-label='Unsave']",
-                ]
-                
-                for selector in selectors:
+                # 1. Wait specifically for 'Remove' label as we know it exists in the post
+                self.logger.info("Waiting for 'Remove' button...")
+                found = False
+                try:
+                    remove_element = wait.until(EC.presence_of_element_located((By.XPATH, "//*[@aria-label='Remove']")))
+                    # Find the clickable container
                     try:
-                        elements = driver.find_elements(By.XPATH, selector)
-                        if not elements:
-                            continue
-                        
-                        element = elements[0]
-                        aria_label = element.get_attribute("aria-label")
-                        self.logger.info(f"Found {aria_label} button.")
-                        
-                        # Try to find the actual clickable button (ancestor)
-                        clickable = element.find_element(By.XPATH, "./ancestor::div[@role='button'] | ./ancestor::button")
-                        clickable.click()
-                        self.logger.info(f"Successfully clicked {aria_label} button.")
-                        next = True
-                        time.sleep(2)
-                        break
+                        clickable = remove_element.find_element(By.XPATH, "./ancestor::div[@role='button'] | ./ancestor::button")
                     except:
-                        continue
+                        clickable = remove_element
+                    
+                    driver.execute_script("arguments[0].scrollIntoView(true);", clickable)
+                    time.sleep(1)
+                    try:
+                        clickable.click()
+                    except:
+                        driver.execute_script("arguments[0].click();", clickable)
+                        
+                    self.logger.info("Successfully clicked 'Remove' button.")
+                    found = True
+                except Exception as wait_err:
+                    self.logger.warning(f"'Remove' button not found via wait: {wait_err}")
+
+                # 2. Fallback to other selectors if direct wait failed
+                if not found:
+                    selectors = [
+                        "//div[@role='button']//svg[@aria-label='Remove']",
+                        "//div[contains(@class, 'x1i10hfl')]//svg[@aria-label='Remove']",
+                        "//*[@aria-label='Unsave']",
+                    ]
+                    for selector in selectors:
+                        try:
+                            elements = driver.find_elements(By.XPATH, selector)
+                            if elements:
+                                clickable = elements[0]
+                                try:
+                                    clickable = clickable.find_element(By.XPATH, "./ancestor::div[@role='button'] | ./ancestor::button")
+                                except:
+                                    pass
+                                driver.execute_script("arguments[0].click();", clickable)
+                                self.logger.info(f"Clicked remove/unsave via fallback: {selector}")
+                                found = True
+                                break
+                        except:
+                            continue
+                
+                # 3. Last resort: click 'Save' button only if we are absolutely sure we can't find 'Remove'
+                if not found:
+                    self.logger.info("Could not find 'Remove'. Checking if already unsaved (shows 'Save')...")
+                    try:
+                        save_element = driver.find_element(By.XPATH, "//*[@aria-label='Save']")
+                        self.logger.info("Found 'Save' button, post might already be unsaved.")
+                        found = True # Treat as success if it is already in the target state
+                    except:
+                        self.logger.warning(f"Could not find any save/unsave button for {url}.")
+
+                if found:
+                    next = True
+                    time.sleep(3)
+                    driver.save_screenshot(f"unsave_final_{int(time.time())}.png")
             except Exception as e:
                 self.logger.error(f"Error during unsave for {url}: {e}")
                 next = False
         return next
-
-
-def test_instagram():
-    driver = InstagramIngestor.setup()
-
-    driver.implicitly_wait(2)
-
-    username_box = driver.find_element(by=By.NAME, value="username")
-    password_box = driver.find_element(by=By.NAME, value="password")
-
-    username_box.send_keys("errejotaoefe")
-    password_box.send_keys("w5A0#@ti7GvATesbNFi")
-    login_button = driver.find_element(by=By.XPATH, value="//button[@type='submit']")
-    login_button.click()
-    driver.implicitly_wait(10)
-    driver.find_element(
-        by=By.XPATH, value="//div[contains(string(), 'Not now')]"
-    ).click()
-    driver.implicitly_wait(10)
-
-    InstagramIngestor.instaloader_import_session()
-    assert 1 == 1
-    InstagramIngestor.teardown(driver)
-
-
-# def main():
-#     parser = argparse.ArgumentParser(description="Download instagram saved posts.")
-#     parser.add_argument(
-#         "-s",
-#         "--session",
-#         action=argparse.BooleanOptionalAction,
-#         help="Gets the session cookie from firefox and needs instagram session to be open in firefox",
-#     )
-#     parser.add_argument(
-#         "-c", "--count", type=int, required=True, help="How many saved posts to download"
-#     )
-
-#     args = parser.parse_args()
-
-#     if args.session:
-#         InstagramIngest.instaloader_import_session()
-#     InstagramIngest.instaloader_download(args.count)
-
-
-# if __name__ == "__main__":
-#     main()
