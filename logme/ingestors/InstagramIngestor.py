@@ -393,9 +393,26 @@ class InstagramIngestor:
 
     def setup_instaloader(self):
         L = instaloader.Instaloader(dirname_pattern=self.conf["tmpdir"])
+        try:
+            L.load_session_from_file(self.USER, self.SESSIONFILE)
+            testLogin = L.test_login()
+            self.logger.info(f"testLogin: {testLogin}")
+            if testLogin:
+                return L
+        except Exception as e:
+            self.logger.warning(f"Failed to load session file {self.SESSIONFILE}: {e}")
+
+        self.logger.info("Session invalid or missing. Attempting to refresh via instaloader_import_session...")
+        self.instaloader_import_session()
+        
+        # Try loading again after import
         L.load_session_from_file(self.USER, self.SESSIONFILE)
         testLogin = L.test_login()
-        self.logger.info(f"testLogin: {testLogin}")
+        if not testLogin:
+            self.logger.error("Failed to login to Instaloader even after session import.")
+            raise typer.Exit("Instaloader login failed.")
+        
+        self.logger.info(f"testLogin after refresh: {testLogin}")
         return L
 
     def _is_working_offline(self):
