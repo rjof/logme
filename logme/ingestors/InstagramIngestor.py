@@ -66,25 +66,38 @@ class InstagramIngestor:
             raise typer.Exit(1)
         self._db_handler = DatabaseHandler(db_path)
 
-    def instaloader_import_session(self):
-        self.logger.info("################### Get session cookie form firefox #######################")
-        driver = self.setup_selenium()
-        self.logger.info("Using cookies from {}.".format(self.conf["cookiefile"]))
-        conn = connect(f"file:{self.conf['cookiefile']}?immutable=1", uri=True)
-        try:
-            cookie_data = conn.execute("SELECT name, value FROM moz_cookies WHERE baseDomain='instagram.com'")
-        except OperationalError:
-            cookie_data = conn.execute("SELECT name, value FROM moz_cookies WHERE host LIKE '%instagram.com'")
+    def instaloader_import_session(self, driver=None):
+        self.logger.info("Refreshing Instaloader session from Selenium...")
+        close_driver = False
+        if driver is None:
+            driver = self.setup_selenium()
+            close_driver = True
         
-        L = instaloader.Instaloader(max_connection_attempts=1)
-        L.context._session.cookies.update(cookie_data)
+        if not self._is_logged_in(driver):
+            self.logger.error("Selenium is not logged in. Cannot refresh Instaloader session.")
+            if close_driver: self.teardown(driver)
+            return False
+
+        self.logger.info("Selenium is logged in, transferring cookies to Instaloader...")
+        L = instaloader.Instaloader()
+        for cookie in driver.get_cookies():
+            L.context._session.cookies.set(
+                cookie['name'], 
+                cookie['value'], 
+                domain=cookie['domain'], 
+                path=cookie['path']
+            )
+        
         username = L.test_login()
-        if not username:
-            raise SystemExit("Not logged in. Are you logged in successfully in Firefox?")
-        self.logger.info("Imported session cookie for {}.".format(username))
-        L.context.username = username
-        L.save_session_to_file(self.SESSIONFILE)
-        InstagramIngestor.teardown(driver)
+        if username:
+            self.logger.info(f"Instaloader session successfully refreshed for {username}")
+            L.save_session_to_file(self.SESSIONFILE)
+            if close_driver: self.teardown(driver)
+            return True
+        else:
+            self.logger.error("Instaloader failed to validate cookies from Selenium.")
+            if close_driver: self.teardown(driver)
+            return False
 
     def instaloader_download(self, how_many):
         next = True
@@ -457,7 +470,19 @@ class InstagramIngestor:
         return urls
 
     def instaloader_process(self, instaloader_session, driver_session):
-        instaloader_session.download_saved_posts(1)
+        try:
+            instaloader_session.download_saved_posts(1)
+        except (instaloader.exceptions.LoginRequiredException, instaloader.exceptions.ConnectionException) as e:
+            self.logger.warning(f"Instaloader session issue: {e}. Attempting refresh from Selenium...")
+            if self.instaloader_import_session(driver=driver_session):
+                # Reload the session into the current instaloader instance
+                instaloader_session.load_session_from_file(self.USER, self.SESSIONFILE)
+                self.logger.info("Retrying download after session refresh...")
+                instaloader_session.download_saved_posts(1)
+            else:
+                self.logger.error("Failed to refresh Instaloader session.")
+                raise
+            
         urls = self.instaloader_process_downloaded()
         self.move_to_exteranl_hdd()
         return self.unsave(urls, driver_session)
