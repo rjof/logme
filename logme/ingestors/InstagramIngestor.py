@@ -471,16 +471,18 @@ class InstagramIngestor:
 
     def instaloader_process(self, instaloader_session, driver_session):
         try:
+            self.logger.info("Attempting to download saved posts...")
             instaloader_session.download_saved_posts(1)
-        except (instaloader.exceptions.LoginRequiredException, instaloader.exceptions.ConnectionException) as e:
-            self.logger.warning(f"Instaloader session issue: {e}. Attempting refresh from Selenium...")
+        except (instaloader.LoginRequiredException, instaloader.ConnectionException, Exception) as e:
+            self.logger.warning(f"Instaloader session issue or error: {e}. Attempting refresh from Selenium...")
+            # If it is a LoginRequiredException or generic error, try to refresh
             if self.instaloader_import_session(driver=driver_session):
                 # Reload the session into the current instaloader instance
+                self.logger.info("Session refreshed. Reloading and retrying download...")
                 instaloader_session.load_session_from_file(self.USER, self.SESSIONFILE)
-                self.logger.info("Retrying download after session refresh...")
                 instaloader_session.download_saved_posts(1)
             else:
-                self.logger.error("Failed to refresh Instaloader session.")
+                self.logger.error("Failed to refresh Instaloader session from Selenium.")
                 raise
             
         urls = self.instaloader_process_downloaded()
