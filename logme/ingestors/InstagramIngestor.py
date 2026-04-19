@@ -406,6 +406,16 @@ class InstagramIngestor:
             driver.quit()
 
     def setup_instaloader(self):
+        # Monkey-patch os.utime to ignore PermissionError (common on some LXC mounts)
+        original_utime = os.utime
+        def patched_utime(path, times=None, **kwargs):
+            try:
+                return original_utime(path, times, **kwargs)
+            except PermissionError:
+                self.logger.warning(f"PermissionError ignored for os.utime on {path}")
+                return None
+        os.utime = patched_utime
+
         L = instaloader.Instaloader(dirname_pattern=self.conf["tmpdir"])
         
         # If USER is None, we need to find it from the session file or config
@@ -491,6 +501,10 @@ class InstagramIngestor:
         try:
             self.logger.info("Attempting to download saved posts...")
             instaloader_session.download_saved_posts(1)
+        except PermissionError as pe:
+            # Specific handling for PermissionError (e.g. os.utime on restricted mounts)
+            self.logger.error(f"Filesystem permission error (likely external HDD mount): {pe}. Check mount options.")
+            # We don't refresh session here as it's not a login issue
         except (instaloader.LoginRequiredException, instaloader.ConnectionException, Exception) as e:
             self.logger.warning(f"Instaloader session issue or error: {e}. Attempting refresh from Selenium...")
             if self.instaloader_import_session(driver=driver_session):
