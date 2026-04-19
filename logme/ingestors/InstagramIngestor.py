@@ -91,6 +91,7 @@ class InstagramIngestor:
         username = L.test_login()
         if username:
             self.logger.info(f"Instaloader session successfully refreshed for {username}")
+            self.USER = username # Update instance USER
             L.save_session_to_file(self.SESSIONFILE)
             if close_driver: self.teardown(driver)
             return True
@@ -406,27 +407,44 @@ class InstagramIngestor:
 
     def setup_instaloader(self):
         L = instaloader.Instaloader(dirname_pattern=self.conf["tmpdir"])
+        
+        # If USER is None, we need to find it from the session file or config
+        if not self.USER:
+            self.logger.warning("USER environment variable is None. Trying to extract from session file...")
+            # Extract username from 'session-USERNAME' filename pattern
+            if self.SESSIONFILE:
+                filename = self.SESSIONFILE.name
+                if filename.startswith("session-"):
+                    self.USER = filename.replace("session-", "")
+                    self.logger.info(f"Extracted USER from filename: {self.USER}")
+
+        if not self.USER:
+            self.logger.error("Instagram USER not found in environment or session filename.")
+            # We can still try to refresh if Selenium is available later, 
+            # but for now we try a blind load if the file exists
+            try:
+                # Instaloader.load_session_from_file(None, ...) doesn't work well
+                pass
+            except:
+                pass
+
         try:
-            L.load_session_from_file(self.USER, self.SESSIONFILE)
-            testLogin = L.test_login()
-            self.logger.info(f"testLogin: {testLogin}")
-            if testLogin:
-                return L
+            if self.USER and self.SESSIONFILE.exists():
+                L.load_session_from_file(self.USER, self.SESSIONFILE)
+                testLogin = L.test_login()
+                self.logger.info(f"testLogin: {testLogin}")
+                if testLogin:
+                    return L
         except Exception as e:
             self.logger.warning(f"Failed to load session file {self.SESSIONFILE}: {e}")
 
-        self.logger.info("Session invalid or missing. Attempting to refresh via instaloader_import_session...")
-        self.instaloader_import_session()
-        
-        # Try loading again after import
-        L.load_session_from_file(self.USER, self.SESSIONFILE)
-        testLogin = L.test_login()
-        if not testLogin:
-            self.logger.error("Failed to login to Instaloader even after session import.")
-            raise typer.Exit("Instaloader login failed.")
-        
-        self.logger.info(f"testLogin after refresh: {testLogin}")
-        return L
+        self.logger.info("Session invalid or missing. Attempting to refresh via Selenium cookies...")
+        if self.instaloader_import_session():
+             # After import, USER should definitely be set (from test_login)
+             L.load_session_from_file(self.USER, self.SESSIONFILE)
+             return L
+        else:
+             raise typer.Exit("Instaloader login failed.")
 
     def _is_working_offline(self):
         files = glob.glob("*xz", root_dir=self.conf["tmpdir"])
@@ -475,10 +493,8 @@ class InstagramIngestor:
             instaloader_session.download_saved_posts(1)
         except (instaloader.LoginRequiredException, instaloader.ConnectionException, Exception) as e:
             self.logger.warning(f"Instaloader session issue or error: {e}. Attempting refresh from Selenium...")
-            # If it is a LoginRequiredException or generic error, try to refresh
             if self.instaloader_import_session(driver=driver_session):
-                # Reload the session into the current instaloader instance
-                self.logger.info("Session refreshed. Reloading and retrying download...")
+                self.logger.info(f"Session refreshed for {self.USER}. Reloading and retrying download...")
                 instaloader_session.load_session_from_file(self.USER, self.SESSIONFILE)
                 instaloader_session.download_saved_posts(1)
             else:
