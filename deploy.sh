@@ -32,88 +32,94 @@ TARGET_PY="python${PY_MAJOR}.${PY_MINOR}"
 
 echo "1. Ensuring Locales, User rjof, and Python $TARGET_PY exist in LXC..."
 
-sshpass -p "$PROXMOX_PASSWORD" ssh "$PROXMOX_USER@$PROXMOX_HOST" "
+sshpass -p "$PROXMOX_PASSWORD" ssh "$PROXMOX_USER@$PROXMOX_HOST" << EOF1
     export LC_ALL=C
     export DEBIAN_FRONTEND=noninteractive
     
-    echo \"Checking for user rjof...\"
+    echo "Checking for user rjof..."
     if ! pct exec $LXC_ID -- id -u rjof > /dev/null 2>&1; then
-        echo \"Creating user rjof...\"
+        echo "Creating user rjof..."
         pct exec $LXC_ID -- useradd -m -s /bin/bash rjof
         pct exec $LXC_ID -- usermod -aG sudo rjof
     else
-        echo \"User rjof already exists.\"
+        echo "User rjof already exists."
     fi
 
     # Ensure rjof owns their home directory and everything in it
-    echo \"Fixing permissions for /home/rjof...\"
+    echo "Fixing permissions for /home/rjof..."
     pct exec $LXC_ID -- chown -R rjof:rjof /home/rjof
 
     if ! pct exec $LXC_ID -- dpkg -s locales > /dev/null 2>&1; then
-        echo \"Installing locales in LXC...\"
+        echo "Installing locales in LXC..."
         pct exec $LXC_ID -- apt-get update
         pct exec $LXC_ID -- apt-get install -y locales
     fi
-    echo \"Generating locales...\"
+
+    echo "Generating locales..."
     pct exec $LXC_ID -- locale-gen en_US.UTF-8
     pct exec $LXC_ID -- locale-gen es_MX.UTF-8
     pct exec $LXC_ID -- update-locale
 
     if ! pct exec $LXC_ID -- which $TARGET_PY > /dev/null 2>&1; then
-        echo \"Required Python version $TARGET_PY not found in LXC. Attempting install...\"
+        echo "Required Python version $TARGET_PY not found in LXC. Attempting install..."
         pct exec $LXC_ID -- apt-get update
         pct exec $LXC_ID -- apt-get install -y $TARGET_PY ${TARGET_PY}-venv
     else
-        echo \"Python $TARGET_PY is already available in LXC.\"
+        echo "Python $TARGET_PY is already available in LXC."
     fi
 
-    echo \"Installing Firefox, Google Chrome (Non-snap) and dependencies...\"
+    echo "Installing Firefox, Google Chrome (Non-snap) and dependencies..."
     pct exec $LXC_ID -- apt-get update
     pct exec $LXC_ID -- apt-get install -y firefox curl wget gnupg unzip
     
     # Install Google Chrome via .deb to avoid snapd issues
-    pct exec $LXC_ID -- bash -c '
+    pct exec $LXC_ID -- bash <<EOF2
         if ! which google-chrome > /dev/null 2>&1; then
-            echo \"Downloading Google Chrome...\"
+            echo "Downloading Google Chrome..."
             wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
             apt-get install -y ./google-chrome-stable_current_amd64.deb
             rm google-chrome-stable_current_amd64.deb
         else
-            echo \"Google Chrome already installed.\"
+            echo "Google Chrome already installed."
         fi
-    '
+EOF2
 
-    echo \"Installing Geckodriver manually...\"
-    pct exec $LXC_ID -- bash -c '
+    echo "Installing Geckodriver manually..."
+    pct exec $LXC_ID -- bash <<EOF3
         if ! which geckodriver > /dev/null 2>&1; then
-            echo \"Downloading latest geckodriver...\"
-            V=\$(curl -s https://api.github.com/repos/mozilla/geckodriver/releases/latest | grep \"tag_name\" | cut -d \"\\\"\" -f 4)
-            URL=\"https://github.com/mozilla/geckodriver/releases/download/\$V/geckodriver-\$V-linux64.tar.gz\"
-            curl -L \"\$URL\" | tar xz -C /usr/local/bin
+            echo "Downloading latest geckodriver..."
+            V=$(curl -s https://api.github.com/repos/mozilla/geckodriver/releases/latest | grep "tag_name" | cut -d "\"" -f 4)
+            #V="v0.36.0"
+            URL="https://github.com/mozilla/geckodriver/releases/download/$V/geckodriver-$V-linux64.tar.gz"
+            echo $URL
+            curl -L "$URL" | tar xz -C /usr/local/bin
+            cp /usr/local/bin/geckodriver /usr/bin/
             chmod +x /usr/local/bin/geckodriver
-            echo \"Geckodriver installed successfully.\"
+            echo "Geckodriver installed successfully."
         else
-            echo \"Geckodriver already installed.\"
+            echo "Geckodriver already installed."
         fi
-    '
+EOF3
 
-    echo \"Installing Chromedriver manually...\"
-    pct exec $LXC_ID -- bash -c '
+    echo "Installing Chromedriver manually..."
+    pct exec $LXC_ID -- bash <<EOF4
         if ! which chromedriver > /dev/null 2>&1; then
-            echo \"Downloading latest chromedriver...\"
+            echo "Downloading latest chromedriver..."
             # This gets the latest stable version for Chrome for Testing
-            V=\$(curl -s https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions.json | grep -oP \"(?<=\\\"version\\\": \\\")[^\\\"]+\" | head -1)
-            URL=\"https://storage.googleapis.com/chrome-for-testing-public/\$V/linux64/chromedriver-linux64.zip\"
-            curl -L -o /tmp/chromedriver.zip \"\$URL\"
-            unzip -j /tmp/chromedriver.zip \"chromedriver-linux64/chromedriver\" -d /usr/local/bin/
+            V=$(curl -s https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions.json | grep -oP "(?<=\"version\":\")[^\"]+" | head -1)
+            URL="https://storage.googleapis.com/chrome-for-testing-public/$V/linux64/chromedriver-linux64.zip"
+            curl -L -o /tmp/chromedriver.zip "$URL"
+            sleep 2
+            unzip -j /tmp/chromedriver.zip "chromedriver-linux64/chromedriver" -d /usr/local/bin/
             chmod +x /usr/local/bin/chromedriver
-            rm /tmp/chromedriver.zip
-            echo \"Chromedriver installed successfully.\"
+            cp /usr/local/bin/chromedriver /usr/bin/chromedriver
+            #rm /tmp/chromedriver.zip
+            echo "Chromedriver installed successfully."
         else
-            echo \"Chromedriver already installed.\"
+            echo "Chromedriver already installed."
         fi
-    '
-"
+EOF4
+EOF1
 
 echo "2. Pushing changes to GitHub..."
 git push origin master
@@ -121,30 +127,30 @@ git push origin master
 echo "3. Syncing cookies.sqlite and configuration files..."
 # Sync Cookies
 sshpass -p "$PROXMOX_PASSWORD" scp "$LOCAL_COOKIE_PATH" "$PROXMOX_USER@$PROXMOX_HOST:/tmp/cookies.sqlite"
-sshpass -p "$PROXMOX_PASSWORD" ssh "$PROXMOX_USER@$PROXMOX_HOST" "
+sshpass -p "$PROXMOX_PASSWORD" ssh "$PROXMOX_USER@$PROXMOX_HOST" <<EOF5
     export LC_ALL=C
     pct exec $LXC_ID -- mkdir -p $(dirname "$REMOTE_COOKIE_PATH")
     pct push $LXC_ID /tmp/cookies.sqlite $REMOTE_COOKIE_PATH
     pct exec $LXC_ID -- chown rjof:rjof $REMOTE_COOKIE_PATH
     rm /tmp/cookies.sqlite
-"
+EOF5
 
 # Sync Instaloader Session
 echo "Syncing Instaloader session..."
 sshpass -p "$PROXMOX_PASSWORD" scp "$LOCAL_INSTA_SESSION" "$PROXMOX_USER@$PROXMOX_HOST:/tmp/session-errejotaoefe"
-sshpass -p "$PROXMOX_PASSWORD" ssh "$PROXMOX_USER@$PROXMOX_HOST" "
+sshpass -p "$PROXMOX_PASSWORD" ssh "$PROXMOX_USER@$PROXMOX_HOST" <<EOF6
     export LC_ALL=C
     pct exec $LXC_ID -- mkdir -p $(dirname "$REMOTE_INSTA_SESSION")
     pct push $LXC_ID /tmp/session-errejotaoefe $REMOTE_INSTA_SESSION
     pct exec $LXC_ID -- chown rjof:rjof $REMOTE_INSTA_SESSION
     rm /tmp/session-errejotaoefe
-"
+EOF6
 
 # Sync Config Directory
 echo "Compressing and syncing $LOCAL_CONFIG_DIR..."
 tar -czf /tmp/logme_config.tar.gz -C "$LOCAL_CONFIG_DIR" .
 sshpass -p "$PROXMOX_PASSWORD" scp /tmp/logme_config.tar.gz "$PROXMOX_USER@$PROXMOX_HOST:/tmp/logme_config.tar.gz"
-sshpass -p "$PROXMOX_PASSWORD" ssh "$PROXMOX_USER@$PROXMOX_HOST" "
+sshpass -p "$PROXMOX_PASSWORD" ssh "$PROXMOX_USER@$PROXMOX_HOST" <<EOF7
     export LC_ALL=C
     pct exec $LXC_ID -- mkdir -p $REMOTE_CONFIG_DIR
     pct push $LXC_ID /tmp/logme_config.tar.gz /tmp/logme_config.tar.gz
@@ -152,7 +158,7 @@ sshpass -p "$PROXMOX_PASSWORD" ssh "$PROXMOX_USER@$PROXMOX_HOST" "
     pct exec $LXC_ID -- chown -R rjof:rjof $REMOTE_CONFIG_DIR
     pct exec $LXC_ID -- rm /tmp/logme_config.tar.gz
     rm /tmp/logme_config.tar.gz
-"
+EOF7
 rm /tmp/logme_config.tar.gz
 
 # Sync .env
@@ -166,31 +172,33 @@ sshpass -p "$PROXMOX_PASSWORD" ssh "$PROXMOX_USER@$PROXMOX_HOST" "
 "
 
 echo "4. Updating LXC Code and Virtual Environment..."
-sshpass -p "$PROXMOX_PASSWORD" ssh "$PROXMOX_USER@$PROXMOX_HOST" "pct exec $LXC_ID -- su - rjof -c 'bash -s' << 'EOF_INNER'
-    VENV_DIR=\"/home/rjof/virtual_environments/logme\"
-    PROJECT_DIR=\"/home/rjof/Documents/logme\"
+sshpass -p "$PROXMOX_PASSWORD" ssh "$PROXMOX_USER@$PROXMOX_HOST" <<EOF8
+    pct exec $LXC_ID -- bash <<EOF9
+    su - rjof
+    VENV_DIR="/home/rjof/virtual_environments/logme"
+    PROJECT_DIR="/home/rjof/Documents/logme"
     
     # Load .env variables
-    if [ -f \"\$PROJECT_DIR/.env\" ]; then
-        export \$(grep -v '^#' \"\$PROJECT_DIR/.env\" | xargs)
+    if [ -f "$PROJECT_DIR/.env" ]; then
+        export $(grep -v '^#' "$PROJECT_DIR/.env" | xargs)
     fi
     export LC_ALL=en_US.UTF-8
     
-    mkdir -p \"\$(dirname \"\$VENV_DIR\")\"
+    mkdir -p $(dirname "$VENV_DIR")
     
-    if [ -d \"\$VENV_DIR\" ]; then
-        CURRENT_VENV_VER=\$(\"\$VENV_DIR/bin/python\" -c 'import sys; print(f\"{sys.version_info.major}.{sys.version_info.minor}\")')
-        if [ \"\$CURRENT_VENV_VER\" != \"${PY_MAJOR}.${PY_MINOR}\" ]; then
+    if [ -d "$VENV_DIR" ]; then
+        CURRENT_VENV_VER=$("$VENV_DIR/bin/python" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+        if [ "$CURRENT_VENV_VER" != "${PY_MAJOR}.${PY_MINOR}" ]; then
             echo 'Venv version mismatch. Recreating...'
-            rm -rf \"\$VENV_DIR\"
+            rm -rf "$VENV_DIR"
         fi
     fi
 
-    if [ ! -d \"\$VENV_DIR\" ]; then
-        echo \"Creating virtual environment with $TARGET_PY...\"
-        $TARGET_PY -m venv \"\$VENV_DIR\"
+    if [ ! -d "$VENV_DIR" ]; then
+        echo "Creating virtual environment with $TARGET_PY..."
+        $TARGET_PY -m venv "$VENV_DIR"
     fi
-    
+
     echo 'Checking for SSH keys...'
     if [ ! -f ~/.ssh/id_ed25519 ]; then
         echo 'Generating new SSH key...'
@@ -207,8 +215,8 @@ sshpass -p "$PROXMOX_PASSWORD" ssh "$PROXMOX_USER@$PROXMOX_HOST" "pct exec $LXC_
         echo 'SSH key already exists.'
     fi
 
-    mkdir -p \"\$PROJECT_DIR\"
-    cd \"\$PROJECT_DIR\" || exit 1
+    mkdir -p "$PROJECT_DIR"
+    cd "$PROJECT_DIR" || exit 1
     
     if [ ! -d .git ]; then
         echo 'Initializing git repository...'
@@ -217,26 +225,20 @@ sshpass -p "$PROXMOX_PASSWORD" ssh "$PROXMOX_USER@$PROXMOX_HOST" "pct exec $LXC_
     fi
 
     echo 'Configuring safe directory for git...'
-    git config --global --add safe.directory \"\$PROJECT_DIR\"
+    git config --global --add safe.directory "$PROJECT_DIR"
     
-    # Ensure remote is SSH
-    CURRENT_REMOTE=\$(git remote get-url origin 2>/dev/null)
-    if [[ \$CURRENT_REMOTE == https* ]]; then
-        echo \"Converting HTTPS remote to SSH...\"
-        REPO_PATH=\$(echo \$CURRENT_REMOTE | sed 's|https://github.com/||')
-        git remote set-url origin \"git@github.com:\${REPO_PATH}\"
-    fi
-
     echo 'Pulling latest code...'
+    cd ${PROJECT_DIR}
     git fetch origin master
     git reset --hard origin/master
     
     echo 'Making run_instagram.sh executable...'
     chmod +x run_instagram.sh
-    
+
     echo 'Updating dependencies...'
-    \"\$VENV_DIR/bin/python\" -m pip install --upgrade pip
-    \"\$VENV_DIR/bin/python\" -m pip install -r requirements.txt
-EOF_INNER
-"
+    source $VENV_DIR/bin/activate
+    python -m pip install --upgrade pip
+    python -m pip install -r requirements.txt
+EOF9
+EOF8
 echo "Deployment complete."
