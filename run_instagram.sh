@@ -29,7 +29,7 @@ echo "--- Starting Instagram Run: $(date) ---" >> "$LOG_FILE"
 echo "Target Amount: $AMOUNT" >> "$LOG_FILE"
 
 # Run with the virtualenv python
-$VENV_PYTHON -m logme source instagram --amount "$AMOUNT" >> "$LOG_FILE" 2>&1
+$VENV_PYTHON -m logme source instagram --amount "$AMOUNT" --browser "chrome">> "$LOG_FILE" 2>&1
 
 echo "--- Finished Run: $(date) ---" >> "$LOG_FILE"
 echo "" >> "$LOG_FILE"

@@ -30,19 +30,32 @@ def move_file_in_local_system(src_file: Path, dst_file: Path):
         shutil.move(src_file, dst_file)
 
 
+def _get_config_parser(config_file: Path = None) -> configparser.ConfigParser:
+    """Return a ConfigParser with both base and (optional) source-specific config loaded."""
+    parser = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
+    parser.optionxform = str
+    
+    # Base config is always loaded
+    base_config = CONFIG_DIR_PATH / "config.ini"
+    config_files = [str(base_config)]
+    
+    # Add source-specific config if provided and different
+    if config_file and config_file.exists() and config_file != base_config:
+        config_files.append(str(config_file))
+        
+    parser.read(config_files)
+    return parser
+
+
 def get_local_storage_path(config_file: Path) -> Path:
     """Return the local path to the downloaded files."""
-    config_parser = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
-    config_parser.optionxform=str
-    config_parser.read(config_file)
+    config_parser = _get_config_parser(config_file)
     return Path(config_parser["LocalPaths"]["storage"])
 
 
 def get_source_conf(src: str = None, section: str = None) -> dict:
-    config_parser = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
-    config_parser.optionxform=str
     file = CONFIG_DIR_PATH / f'{src}.ini'
-    config_parser.read(file)
+    config_parser = _get_config_parser(file)
     # options = [option for option in config_parser[section]]
     thedict0 = {}
     for key, val in config_parser.items(section):
@@ -84,18 +97,9 @@ def isFileInHistory(file_name: str, src_type: str, sub_folder: str = '') -> bool
         return False
 
 
-def get_src_conf(config_file: Path) -> Path:
+def get_src_conf(config_file: Path) -> configparser.ConfigParser:
     """Return the configparser object of the source to ingest & process."""
-    config_parser = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
-    config_parser.optionxform=str
-    return config_parser.read(config_file)
-
-    if not config.CONFIG_FILE_PATH.exists():
-        typer.secho(
-            'Config file not found.',
-            fg=typer.colors.RED,
-        )
-        raise typer.Exit(1)
+    return _get_config_parser(config_file)
 
 
 def remove_already_processed(src: str, files: list[str]) -> list[str]:
@@ -116,8 +120,6 @@ def remove_already_processed(src: str, files: list[str]) -> list[str]:
 
 def get_database_path(config_file: Path) -> Path:
     """Return the local storage of collected files."""
-    config_parser = configparser.ConfigParser(interpolation=configparser.ExtendedInterpolation())
-    config_parser.optionxform = str
-    config_parser.read(config_file)
+    config_parser = _get_config_parser(config_file)
     return Path(config_parser["General"]["database"])
 
