@@ -39,12 +39,23 @@ def source_trigger(src: str = None, amount: int = 0, browser: str = "firefox") -
     from logme.connectors import Dropbox
     
     logger.info(f"source_trigger src: {src}, browser: {browser}")
+
+    # Load source-specific config if it exists
+    source_config_file = config.CONFIG_DIR_PATH / f"{src}.ini"
+    if source_config_file.exists():
+        config.CONFIG_FILE_PATH = source_config_file
+        import logme
+        logme.CONFIG_FILE_PATH = source_config_file
+        logger.info(f"Using source-specific config: {source_config_file}")
+
     dst_path = Path(
         u.get_local_storage_path(config.CONFIG_FILE_PATH)
         / "landing"
         / src
         / f"{date_time}"
     )
+    dst = dst_path
+
     conf = u.get_source_conf(src, src)
     conf["browser"] = browser
     conf_raw_to_l1 = u.get_source_conf(src, f"{src}_raw_to_l1")
