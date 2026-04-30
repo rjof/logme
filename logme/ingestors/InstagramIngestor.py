@@ -471,6 +471,7 @@ class InstagramIngestor:
             df1.insert(loc=0, column="ingest_timestamp", value=now_ts)
             df1.insert(loc=0, column="src_file", value=file)
             table_name = self.conf_landing_to_raw.get("table_name", "instagram_raw")
+            df1 = self.ProcessingUtils._add_hash(df1)
             df1 = df1.astype(str).replace("nan", np.nan)
             
             if not self.ProcessingUtils._table_exists(table_name=table_name):
