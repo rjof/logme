@@ -493,6 +493,17 @@ class InstagramIngestor:
                     quoted_columns=quoted_columns,
                     values=values,
                 )
+            
+            # Analyze the txt file if it exists
+            try:
+                from logme.processors.InstagramProcessor import InstagramProcessor
+                processor = InstagramProcessor()
+                txt_file = file.replace(".json.xz", ".txt")
+                txt_path = os.path.join(self.conf["tmpdir"], txt_file)
+                processor.process_txt_file(txt_path)
+            except Exception as e:
+                self.logger.error(f"Error in InstagramProcessor: {e}")
+
             post_url = f'https://www.instagram.com/p/{df1["node.shortcode"].iloc[0]}/'
             urls.append(post_url)
         return urls
