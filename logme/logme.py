@@ -32,7 +32,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def source_trigger(src: str = None, amount: int = 0, browser: str = "firefox") -> None:
+def source_trigger(src: str = None, amount: int = 0, browser: str = "chrome") -> None:
     from logme.ingestors.InstagramIngestor import InstagramIngestor
     from logme.processors import Multi_TimerProcessor
     from logme.connectors import GoogleDrive
