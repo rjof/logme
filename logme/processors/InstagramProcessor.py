@@ -55,6 +55,13 @@ class InstagramProcessor:
         # Extract tags: ascii words prefixed with #
         tags = re.findall(r'#(\w+)', content)
         
+        # Extract emojis as tags (using a common emoji unicode range)
+        # This regex matches common emojis in the BMP and beyond
+        emojis = re.findall(r'[\U0001f300-\U0001f9ff\U0001f600-\U0001f64f]', content)
+        if emojis:
+            self.logger.info(f"Found {len(emojis)} emojis to treat as tags")
+            tags.extend(emojis)
+        
         # Extract mentions: ascii words prefixed by @. Accounts can have dots.
         mentions = re.findall(r'@([\w.]+)', content)
         # Remove trailing dot if it's likely end of sentence
