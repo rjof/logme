@@ -32,13 +32,13 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def source_trigger(src: str = None, amount: int = 0, browser: str = "chrome") -> None:
+def source_trigger(src: str = None, amount: int = 0, browser: str = "chrome", offline: bool = False) -> None:
     from logme.ingestors.InstagramIngestor import InstagramIngestor
     from logme.processors import Multi_TimerProcessor
     from logme.connectors import GoogleDrive
     from logme.connectors import Dropbox
     
-    logger.info(f"source_trigger src: {src}, browser: {browser}")
+    logger.info(f"source_trigger src: {src}, browser: {browser}, offline: {offline}")
 
     # Load source-specific config if it exists
     source_config_file = config.CONFIG_DIR_PATH / f"{src}.ini"
@@ -93,7 +93,7 @@ def source_trigger(src: str = None, amount: int = 0, browser: str = "chrome") ->
         case "instagram":
             logger.info("Process instagram saved posts")
             ingestor = InstagramIngestor(src, conf)
-            ingestor.instaloader_download(amount)
+            ingestor.instaloader_download(amount, offline)
         case "Multi_Timer":
             logger.info("Process Multi_Timer")
             ingestor = Multi_TimerIngestor.MultiTimerIngest(src, dst_path, conf)

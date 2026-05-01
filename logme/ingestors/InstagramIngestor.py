@@ -100,7 +100,18 @@ class InstagramIngestor:
             if close_driver: self.teardown(driver)
             return False
 
-    def instaloader_download(self, how_many):
+    def instaloader_download(self, how_many, offline_flag=False):
+        if offline_flag:
+            self.logger.info("Processing in OFFLINE mode")
+            offline_dir = self.conf.get("offline_dir")
+            if not offline_dir or not os.path.exists(offline_dir):
+                self.logger.error(f"Offline directory not found or not configured: {offline_dir}")
+                return
+            
+            self.instaloader_process_downloaded(directory=offline_dir)
+            self.move_to_external_hdd(directory=offline_dir)
+            return
+
         next = True
         offline = self._is_working_offline()
         instaloader_session = self.setup_instaloader()
@@ -113,7 +124,7 @@ class InstagramIngestor:
             else:
                 self.logger.info("Processing off line already downloaded")
                 urls = self.instaloader_process_downloaded()
-                self.move_to_exteranl_hdd()
+                self.move_to_external_hdd()
                 self.unsave(urls, driver)
         finally:
             InstagramIngestor.teardown(driver)
@@ -460,12 +471,15 @@ class InstagramIngestor:
         files = glob.glob("*xz", root_dir=self.conf["tmpdir"])
         return len(files) > 0
 
-    def instaloader_process_downloaded(self) -> list[str]:
-        files = glob.glob("*xz", root_dir=self.conf["tmpdir"])
+    def instaloader_process_downloaded(self, directory=None) -> list[str]:
+        if directory is None:
+            directory = self.conf["tmpdir"]
+            
+        self.logger.info(f"Scanning directory for .xz files: {directory}")
+        files = glob.glob("*xz", root_dir=directory)
         urls = []
         for file in files:
-            tmpdir = self.conf["tmpdir"]
-            jsonPost = lzma.open(f"{tmpdir}/{file}").read().decode("utf-8")
+            jsonPost = lzma.open(f"{directory}/{file}").read().decode("utf-8")
             json_obj = json.loads(jsonPost)
             df1 = pd.json_normalize(json_obj).reset_index(drop=True)
             df1 = df1.astype(str).replace("nan", np.nan)
@@ -503,13 +517,16 @@ class InstagramIngestor:
                     from logme.processors.InstagramProcessor import InstagramProcessor
                     processor = InstagramProcessor()
                     txt_file = file.replace(".json.xz", ".txt")
-                    txt_path = os.path.join(self.conf["tmpdir"], txt_file)
+                    txt_path = os.path.join(directory, txt_file)
                     post_hash = df1['hash'].iloc[0]
                     processor.process_txt_file(txt_path, post_hash)
                 except Exception as e:
                     self.logger.error(f"Error in InstagramProcessor: {e}")
             else:
                 self.logger.info(f"Skipping processing for {file} as it already exists in {table_name}")
+                # Move duplicate files to external HDD
+                prefix = file.replace(".json.xz", "")
+                self.move_post_to_external_hdd(prefix, directory)
 
             post_url = f'https://www.instagram.com/p/{df1["node.shortcode"].iloc[0]}/'
             urls.append(post_url)
@@ -534,17 +551,60 @@ class InstagramIngestor:
                 raise
             
         urls = self.instaloader_process_downloaded()
-        self.move_to_exteranl_hdd()
+        self.move_to_external_hdd()
         return self.unsave(urls, driver_session)
 
-    def move_to_exteranl_hdd(self):
-        file_names = os.listdir(self.conf["tmpdir"])
+    def move_to_external_hdd(self, directory=None):
+        if directory is None:
+            directory = self.conf["tmpdir"]
+            
+        external_hdd = self.conf.get("external_hdd")
+        if not external_hdd or not os.path.exists(external_hdd):
+            self.logger.warning(f"External HDD path not found or not configured: {external_hdd}")
+            return
+
+        file_names = os.listdir(directory)
         for file_name in file_names:
-            if not os.path.exists(os.path.join(self.conf["external_hdd"], file_name)):
-                shutil.move(os.path.join(self.conf["tmpdir"], file_name),
-                           os.path.join(self.conf["external_hdd"], file_name))
+            src = os.path.join(directory, file_name)
+            dst = os.path.join(external_hdd, file_name)
+            if not os.path.exists(dst):
+                try:
+                    shutil.move(src, dst)
+                except Exception as e:
+                    self.logger.error(f"Error moving {src} to {dst}: {e}")
             else:
-                os.remove(os.path.join(self.conf["tmpdir"], file_name))
+                try:
+                    if os.path.isfile(src):
+                        os.remove(src)
+                    elif os.path.isdir(src):
+                        shutil.rmtree(src)
+                except Exception as e:
+                    self.logger.error(f"Error removing {src}: {e}")
+
+    def move_post_to_external_hdd(self, prefix, source_dir):
+        external_hdd = self.conf.get("external_hdd")
+        if not external_hdd or not os.path.exists(external_hdd):
+            self.logger.warning(f"External HDD path not found or not configured: {external_hdd}")
+            return
+
+        # Use glob to find all files with this prefix
+        files = glob.glob(f"{prefix}*", root_dir=source_dir)
+        for f in files:
+            src = os.path.join(source_dir, f)
+            dst = os.path.join(external_hdd, f)
+            if not os.path.exists(dst):
+                try:
+                    shutil.move(src, dst)
+                except Exception as e:
+                    self.logger.error(f"Error moving post file {src} to {dst}: {e}")
+            else:
+                try:
+                    if os.path.isfile(src):
+                        os.remove(src)
+                    elif os.path.isdir(src):
+                        shutil.rmtree(src)
+                except Exception as e:
+                    self.logger.error(f"Error removing duplicate post file {src}: {e}")
 
     def unsave(self, urls, driver):
         next = False

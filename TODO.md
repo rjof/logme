@@ -1,23 +1,11 @@
-# instagram l2
-Extract and process the following fields:
- - src_file
- - node.id
- - node.shortcode
- - node.edge_media_to_comment.count 
- - node.owner.username
- - node.owner.full_name
- - node.edge_media_to_caption.edges: json array to compare with the `node.iphon_struct.caption.<element>`. Example: [{'node': {'created_at': '1759602114', 'text': 'Ma façon de vous souhaiter une bonne rentrée avec un peu d\'humour en cette journée qui peut être forte en émotions pour beaucoup.\n\nExtrait de la série québécoise "Les beaux malaises".', 'id': '18028768844722096'}}]
- - node.iphone_struct.caption.created_at_utc
- - node.iphone_struct.caption.text
- - node.iphone_struct.caption.user.full_name
- - node.iphone_struct.caption.user.username
- 
-## From node.iphone_struct.caption.text
-	Extract tags. Examples: 
-	- `#aerialsilks #aerialrope #training #flex #loveart #vertigocirko'`
-	- `Después de 10000 intentos 😄 #training #flex #aerialsilks #vertigocirko`
- 
- How to save them? To be searchable
+# instagram offline process
+Using the ~/.config/logme/config.ini value in [instagram].offline_dir = /media/rjof/toshiba/rjof/instagram/instaloader/offline
+I want to be able to put the files downloaded from a post (mp4, jpg, xz, txt) in that path and run the processing (add to raw, l1, l2) and get them processed with `python -m logme source instagram --offline`
+This process should skip any connection to internet, the web driver or instaloader
+Can you develop it?
+
+# instagram tags analysis
+
  
 # Add whatsapp chat history
 Dropbox location Apps/logme_rjof/WhatsApp

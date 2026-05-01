@@ -46,7 +46,8 @@ def process_src(
     src: str = typer.Argument(
         default="", help=f"Chose one of the implemented sources:\n" f"{sourcesList}"), 
         amount: int = typer.Option(6, "--amount", "-a", help="How many items to process."),
-        browser: str = typer.Option("firefox", "--browser", "-b", help="Browser to use for selenium (firefox or chrome).")
+        browser: str = typer.Option("firefox", "--browser", "-b", help="Browser to use for selenium (firefox or chrome)."),
+        offline: bool = typer.Option(False, "--offline", help="Process data offline without internet connection.")
         ) -> int:
     """Process a source."""
 
@@ -71,7 +72,7 @@ def process_src(
         print(f"Creates directory: {dst}")
         makedirs(dst)
     print(f"dst: {dst}")
-    source_trigger(src, amount, browser)
+    source_trigger(src, amount, browser, offline)
     return 0
 
 
