@@ -468,14 +468,15 @@ class InstagramIngestor:
             jsonPost = lzma.open(f"{tmpdir}/{file}").read().decode("utf-8")
             json_obj = json.loads(jsonPost)
             df1 = pd.json_normalize(json_obj).reset_index(drop=True)
+            df1 = df1.astype(str).replace("nan", np.nan)
+            df1 = self.ProcessingUtils._add_hash(df1)
             df1.insert(loc=0, column="ingest_timestamp", value=now_ts)
             df1.insert(loc=0, column="src_file", value=file)
             table_name = self.conf_landing_to_raw.get("table_name", "instagram_raw")
-            df1 = df1.astype(str).replace("nan", np.nan)
-            df1 = self.ProcessingUtils._add_hash(df1)
             
             if not self.ProcessingUtils._table_exists(table_name=table_name):
                 self._db_handler.df_to_db(df=df1, table_name=table_name)
+                inserted = True
             else:
                 cols_in_db = self._db_handler.fields_in_table(table_name)
                 df1_cols = sorted(set(df1.columns))
@@ -488,23 +489,27 @@ class InstagramIngestor:
                 placeholders = ", ".join(["?" for _ in cols_in_db])
                 quoted_columns = ", ".join([f'"{col}"' for col in cols_in_db])
                 values = [df1[col].iloc[0] if col in df1_cols else np.nan for col in cols_in_db]
-                self._db_handler.row_to_raw_instagram(
+                res = self._db_handler.row_to_raw_instagram(
                     table_name=table_name,
                     placeholders=placeholders,
                     quoted_columns=quoted_columns,
                     values=values,
                 )
+                inserted = (res > 0) if isinstance(res, int) else False
             
-            # Analyze the txt file if it exists
-            try:
-                from logme.processors.InstagramProcessor import InstagramProcessor
-                processor = InstagramProcessor()
-                txt_file = file.replace(".json.xz", ".txt")
-                txt_path = os.path.join(self.conf["tmpdir"], txt_file)
-                post_hash = df1['hash'].iloc[0]
-                processor.process_txt_file(txt_path, post_hash)
-            except Exception as e:
-                self.logger.error(f"Error in InstagramProcessor: {e}")
+            if inserted:
+                # Analyze the txt file if it exists
+                try:
+                    from logme.processors.InstagramProcessor import InstagramProcessor
+                    processor = InstagramProcessor()
+                    txt_file = file.replace(".json.xz", ".txt")
+                    txt_path = os.path.join(self.conf["tmpdir"], txt_file)
+                    post_hash = df1['hash'].iloc[0]
+                    processor.process_txt_file(txt_path, post_hash)
+                except Exception as e:
+                    self.logger.error(f"Error in InstagramProcessor: {e}")
+            else:
+                self.logger.info(f"Skipping processing for {file} as it already exists in {table_name}")
 
             post_url = f'https://www.instagram.com/p/{df1["node.shortcode"].iloc[0]}/'
             urls.append(post_url)

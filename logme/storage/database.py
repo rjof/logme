@@ -261,13 +261,19 @@ class DatabaseHandler:
             engine = create_engine(sqlite_db, echo=True)
             raw_conn = engine.raw_connection()
             cursor = raw_conn.cursor()
-            insert_sql = f"INSERT INTO \"{table_name}\" ({quoted_columns}) VALUES ({placeholders})"
+            insert_sql = f"INSERT OR IGNORE INTO \"{table_name}\" ({quoted_columns}) VALUES ({placeholders})"
 
             try:
                 cursor.execute(insert_sql, values)
-            except OSError:  # Catch file IO problems
-                return DB_READ_ERROR
+                rowcount = cursor.rowcount
+            except Exception as e:
+                print(f"Error inserting row: {e}")
+                return DB_WRITE_ERROR
             raw_conn.commit()
-            print(f"Row inserted in {table_name}")
+            if rowcount > 0:
+                print(f"Row inserted in {table_name}")
+            else:
+                print(f"Row ignored (duplicate) in {table_name}")
+            return rowcount
         except OSError:  # Catch file IO problems
             return DB_READ_ERROR
