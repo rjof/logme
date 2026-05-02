@@ -1,5 +1,6 @@
 # Description
 Python package to collect some logs of my personal life.
+
 # Installation
 - Clone the repo
 - Create virtual environment ```python -m venv source /home/rjof/virtual_environments/logme/```
@@ -129,6 +130,20 @@ Column('ts_from',      Integer),
 
 Column('ts_to',        Integer),
 
+
+# Analysis
+## Instagram Tags Analysis
+This tool analyzes the tags collected from Instagram and groups them semantically using machine learning embeddings. This helps in consolidating tags that are conceptually similar but linguistically different (e.g., typos, slang, or related terms like `aerialist` and `aerialsilks`).
+
+### Features
+- **Descriptive Statistics:** Frequency analysis, unique tag counts, and emoji distribution.
+- **Semantic Grouping:** Uses `sentence-transformers` and `K-Means` clustering to group tags by meaning.
+- **Canonical Labeling:** Automatically identifies a representative label for each cluster.
+
+### Usage
+```bash
+python logme/scripts/analyze_tags.py
+```
 
 # Notes
 
