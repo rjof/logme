@@ -4,6 +4,7 @@ import sqlite3
 import pandas as pd
 import logging
 import re
+import unicodedata
 from pathlib import Path
 
 # Add project root to sys.path to allow imports from logme
@@ -21,6 +22,19 @@ logger = logging.getLogger(__name__)
 def is_emoji(s):
     # Simple check for emojis (matches common emoji ranges)
     return bool(re.match(r'^[\U0001f300-\U0001f9ff\U0001f600-\U0001f64f]+$', s))
+
+def normalize_text(text):
+    """Normalize text to handle accents and casing."""
+    if not text:
+        return ""
+    # Lowercase
+    text = text.lower()
+    # Remove accents/diacritics for better comparison (optional for embeddings but good for counts)
+    text = "".join(
+        c for c in unicodedata.normalize('NFD', text)
+        if unicodedata.category(c) != 'Mn'
+    )
+    return text
 
 def analyze_tags():
     # 1. Configuration Discovery
@@ -58,18 +72,25 @@ def analyze_tags():
         return
 
     # 3. Descriptive Statistics
+    # For stats, we use the raw tags but we'll also show unique normalized tags
     total_tags = len(df)
     unique_tags = df['tag'].nunique()
+    
+    # Create normalized column for better grouping in stats
+    df['tag_norm'] = df['tag'].apply(normalize_text)
+    unique_tags_norm = df['tag_norm'].nunique()
+    
     tag_counts = df['tag'].value_counts()
 
     print("\n" + "="*40)
     print("INSTAGRAM TAGS DESCRIPTIVE STATISTICS")
     print("="*40)
     print(f"Total tags recorded: {total_tags}")
-    print(f"Unique tags:         {unique_tags}")
+    print(f"Unique tags (raw):    {unique_tags}")
+    print(f"Unique tags (norm):   {unique_tags_norm}")
     print(f"Average tag frequency: {total_tags/unique_tags:.2f}")
 
-    print("\nTOP 20 TAGS:")
+    print("\nTOP 20 TAGS (Raw):")
     print(tag_counts.head(20).to_string())
 
     emoji_tags = df[df['tag'].apply(is_emoji)]
@@ -78,9 +99,9 @@ def analyze_tags():
         print("Top Emojis:")
         print(emoji_tags['tag'].value_counts().head(10).to_string())
 
-    # 4. Semantic Grouping (Option A)
+    # 4. Semantic Grouping (Multilingual Option A)
     print("\n" + "="*40)
-    print("SEMANTIC GROUPING (Option A)")
+    print("MULTILINGUAL SEMANTIC GROUPING")
     print("="*40)
 
     try:
@@ -93,26 +114,28 @@ def analyze_tags():
         print("pip install sentence-transformers scikit-learn")
         return
 
-    # Filter to tags with frequency > 1 to reduce noise and computation
-    frequent_tags_df = tag_counts[tag_counts > 1].reset_index()
-    frequent_tags_df.columns = ['tag', 'count']
+    # For clustering, we use the unique normalized tags to avoid redundant vectors
+    # and we focus on those appearing more than once to reduce noise
+    norm_counts = df['tag_norm'].value_counts()
+    frequent_norm = norm_counts[norm_counts > 1].reset_index()
+    frequent_norm.columns = ['tag_norm', 'count']
     
-    tags_to_cluster = frequent_tags_df['tag'].tolist()
+    tags_to_cluster = frequent_norm['tag_norm'].tolist()
     
     if len(tags_to_cluster) < 5:
         print("Not enough frequent tags (count > 1) to perform meaningful clustering.")
         return
 
-    print(f"Clustering {len(tags_to_cluster)} tags with frequency > 1...")
+    print(f"Clustering {len(tags_to_cluster)} unique concepts across languages...")
 
-    # Load model (small and fast)
-    model = SentenceTransformer('all-MiniLM-L6-v2')
+    # Load MULTILINGUAL model
+    # paraphrase-multilingual-MiniLM-L12-v2 supports 50+ languages including Spanish and English
+    model = SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')
     embeddings = model.encode(tags_to_cluster)
 
     # Simple K-Means clustering
-    # We'll estimate the number of clusters as 1/5th of the tags, or at least 5
-    n_clusters = max(5, len(tags_to_cluster) // 5)
-    n_clusters = min(n_clusters, 50) # Cap at 50 for this prototype
+    n_clusters = max(5, len(tags_to_cluster) // 6)
+    n_clusters = min(n_clusters, 60) # Slightly higher cap for multilingual diversity
     
     kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10)
     clusters = kmeans.fit_predict(embeddings)
@@ -122,16 +145,20 @@ def analyze_tags():
     for i, cluster_id in enumerate(clusters):
         if cluster_id not in clustered_tags:
             clustered_tags[cluster_id] = []
-        clustered_tags[cluster_id].append((tags_to_cluster[i], frequent_tags_df.iloc[i]['count']))
+        
+        # Find raw tags that map to this normalized tag for display
+        raw_tags = df[df['tag_norm'] == tags_to_cluster[i]]['tag'].unique().tolist()
+        raw_tags_str = "/".join(raw_tags)
+        
+        clustered_tags[cluster_id].append((raw_tags_str, frequent_norm.iloc[i]['count']))
 
     # Print clusters
-    print(f"\nIdentified {n_clusters} semantic groups:")
+    print(f"\nIdentified {n_clusters} cross-lingual semantic groups:")
     
-    # Sort clusters by total count of tags within them
     cluster_summaries = []
     for cid, tags in clustered_tags.items():
         total_count = sum(t[1] for t in tags)
-        # Canonical label is the most frequent tag in the cluster
+        # Canonical label is the most frequent normalized concept
         canonical = max(tags, key=lambda x: x[1])[0]
         cluster_summaries.append({
             'cid': cid,
@@ -142,10 +169,13 @@ def analyze_tags():
     
     cluster_summaries.sort(key=lambda x: x['total_count'], reverse=True)
 
-    for summary in cluster_summaries[:15]: # Show top 15 clusters
+    for summary in cluster_summaries[:20]: # Show top 20 clusters
         tags_str = ", ".join([f"{t[0]}({t[1]})" for t in sorted(summary['tags'], key=lambda x: x[1], reverse=True)[:10]])
-        print(f"\nGroup: [{summary['canonical'].upper()}] (Total frequency: {summary['total_count']})")
+        print(f"\nGroup: [{summary['canonical'].upper()}] (Total freq: {summary['total_count']})")
         print(f"Tags: {tags_str}" + ("..." if len(summary['tags']) > 10 else ""))
+
+if __name__ == "__main__":
+    analyze_tags()
 
 if __name__ == "__main__":
     analyze_tags()
