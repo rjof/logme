@@ -6,7 +6,7 @@ PROJECT_DIR="/home/rjof/Documents/logme"
 VENV_PYTHON="/home/rjof/virtual_environments/logme/bin/python"
 LOG_FILE="/home/rjof/logme_data/logs/cron_instagram.log"
 #SECONDS_TO_SLEEP=$((RANDOM % (6*60*60))) To run between 0 and 6 hours
-SECONDS_TO_SLEEP=$((RANDOM % (30*60))) To run between 0 and 30 minutes
+SECONDS_TO_SLEEP=$((RANDOM % (60*60))) # To run between 0 and 60 minutes
 
 # Sleeps SECONDS_TO_SLEEP (random) seconds to avoid instagram 
 # detecting automatic behaivor
