@@ -139,6 +139,7 @@ This tool analyzes the tags collected from Instagram and groups them semanticall
 - **Descriptive Statistics:** Frequency analysis, unique tag counts, and emoji distribution.
 - **Semantic Grouping:** Uses `sentence-transformers` and `K-Means` clustering to group tags by meaning.
 - **Canonical Labeling:** Automatically identifies a representative label for each cluster.
+- **Hierarchical "Family Tree":** Visualizes relationships between concepts (e.g., how #crossfit relates to #fitness) using Agglomerative Clustering.
 
 ### Usage
 ```bash

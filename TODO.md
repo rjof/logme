@@ -6,7 +6,7 @@ Can you develop it?
 
 # instagram tags analysis
 
- 
+
 # Add whatsapp chat history
 Dropbox location Apps/logme_rjof/WhatsApp
 It's a zip which includes the name "Chat de WhatsApp con <person_name>.txt"
@@ -51,7 +51,7 @@ https://developer.spotify.com/documentation/web-api
   - Create Anki cards from every note.
   - In case of a single word highlighted it is probable a word to learn. The process should be to look for a definition in the original language and add a Anki card with the definition.
   - When a new book is find ask gptchat to create a set of X amount of questions about the book.
-  
+
 # Rules generation
  For example:
  ```

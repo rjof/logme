@@ -106,12 +106,14 @@ def analyze_tags():
 
     try:
         from sentence_transformers import SentenceTransformer
-        from sklearn.cluster import KMeans
+        from sklearn.cluster import KMeans, AgglomerativeClustering
+        from scipy.cluster import hierarchy
+        from scipy.spatial import distance
         import numpy as np
     except ImportError:
         print("\n[!] Required libraries for semantic grouping are missing.")
         print("Please install them using:")
-        print("pip install sentence-transformers scikit-learn")
+        print("pip install sentence-transformers scikit-learn scipy")
         return
 
     # For clustering, we use the unique normalized tags to avoid redundant vectors
@@ -174,8 +176,92 @@ def analyze_tags():
         print(f"\nGroup: [{summary['canonical'].upper()}] (Total freq: {summary['total_count']})")
         print(f"Tags: {tags_str}" + ("..." if len(summary['tags']) > 10 else ""))
 
-if __name__ == "__main__":
-    analyze_tags()
+    # 5. Hierarchical Semantic Tree (Family Tree)
+    print("\n" + "="*40)
+    print("HIERARCHICAL SEMANTIC TREE (Family Tree)")
+    print("="*40)
+
+    # Perform hierarchical clustering
+    Z = hierarchy.linkage(embeddings, method='ward')
+    
+    def get_cluster_label(idx, n_samples, tags, df):
+        if idx < n_samples:
+            return tags[idx]
+        else:
+            # For internal nodes, find the most frequent tag in the subtree
+            # This is a bit complex, but we can simplify by using a representative tag
+            # from the children
+            left_child = int(Z[idx - n_samples, 0])
+            right_child = int(Z[idx - n_samples, 1])
+            
+            # Recurse to find leaf labels
+            def get_leaves(node_idx):
+                if node_idx < n_samples:
+                    return [node_idx]
+                else:
+                    lc = int(Z[node_idx - n_samples, 0])
+                    rc = int(Z[node_idx - n_samples, 1])
+                    return get_leaves(lc) + get_leaves(rc)
+            
+            leaf_indices = get_leaves(idx)
+            # Find the tag with the highest frequency among these leaves
+            leaf_tags = [tags[i] for i in leaf_indices]
+            # Map back to frequent_norm to get counts
+            subset = frequent_norm[frequent_norm['tag_norm'].isin(leaf_tags)]
+            top_tag = subset.sort_values(by='count', ascending=False).iloc[0]['tag_norm']
+            return top_tag.upper()
+
+    def print_text_tree(idx, n_samples, tags, prefix="", is_last=True):
+        label = get_cluster_label(idx, n_samples, tags, df)
+        
+        connector = "└── " if is_last else "├── "
+        print(f"{prefix}{connector}[{label}]")
+        
+        if idx >= n_samples:
+            new_prefix = prefix + ("    " if is_last else "│   ")
+            left_child = int(Z[idx - n_samples, 0])
+            right_child = int(Z[idx - n_samples, 1])
+            
+            # Print children (only if it's not too deep or we want to show it)
+            # To avoid a massive tree, we can limit depth or complexity
+            # For now, let's print the full structure but keep it readable
+            print_text_tree(left_child, n_samples, tags, new_prefix, is_last=False)
+            print_text_tree(right_child, n_samples, tags, new_prefix, is_last=True)
+
+    # Starting with the root node (last merge)
+    n_samples = len(tags_to_cluster)
+    root_idx = 2 * n_samples - 2
+    
+    # We might want to start from several "large" clusters to avoid one giant ROOT
+    # Let's find the nodes that are just below a certain distance threshold
+    # or just show the top few levels
+    
+    print("Semantic connections (Strongest associations):")
+    # For a readable tree, we can use a depth-limited version or show specific branches
+    # Let's show the tree starting from the root but with a depth limit for display
+    
+    def print_limited_tree(idx, n_samples, tags, prefix="", is_last=True, depth=0, max_depth=5):
+        if depth > max_depth:
+            print(f"{prefix}{'└── ' if is_last else '├── '}...")
+            return
+
+        label = get_cluster_label(idx, n_samples, tags, df)
+        connector = "└── " if is_last else "├── "
+        
+        # If it's a leaf, show it with its count
+        if idx < n_samples:
+            count = frequent_norm[frequent_norm['tag_norm'] == tags[idx]]['count'].values[0]
+            print(f"{prefix}{connector}#{tags[idx]} ({count})")
+        else:
+            print(f"{prefix}{connector}[{label}]")
+            new_prefix = prefix + ("    " if is_last else "│   ")
+            left_child = int(Z[idx - n_samples, 0])
+            right_child = int(Z[idx - n_samples, 1])
+            
+            print_limited_tree(left_child, n_samples, tags, new_prefix, False, depth + 1, max_depth)
+            print_limited_tree(right_child, n_samples, tags, new_prefix, True, depth + 1, max_depth)
+
+    print_limited_tree(root_idx, n_samples, tags_to_cluster, max_depth=6)
 
 if __name__ == "__main__":
     analyze_tags()
