@@ -1,0 +1,192 @@
+Absolutely! Consolidating all your JSON files into a single table, even with varying columns, is a common requirement. Let's craft a strategy that handles new columns gracefully.
+-------------------------------------
+To ingest all JSON files into a single table in SQLite and handle new columns effectively, the best strategy is to: 
+
+1.  **Establish a Master Schema (Initial Table Creation):** When processing the *first* JSON file (or a predefined set of files to establish a baseline), create your SQLite table. Identify all unique keys across these initial files and define columns for each. For keys that appear in some but not all files, define them as nullable. 
+
+2.  **Handle New Columns Dynamically:** For subsequent JSON files, when you encounter a key (column) that doesn't exist in the current table schema:
+    *   **Add the Column:** Execute an `ALTER TABLE ADD COLUMN` SQL statement to add the new column to your existing table. You can set a default value (like `NULL`) for this new column for all existing rows.
+    *   **Insert Data:** Proceed with inserting the data from the current JSON file. The new column will be populated with the value from the JSON, and existing rows will have `NULL` (or your chosen default) for this new column.
+
+**Python Implementation Strategy:**
+
+```python
+import json
+import sqlite3
+import os
+
+DATABASE_NAME = "unified_raw_data.db"
+TARGET_TABLE_NAME = "all_json_data"
+JSON_FILES_DIRECTORY = "json_files"
+
+def get_all_unique_keys(json_data_list):
+    """Collects all unique keys from a list of JSON objects."""
+    all_keys = set()
+    for item in json_data_list:
+        if isinstance(item, dict):
+            all_keys.update(item.keys())
+    return sorted(list(all_keys))
+
+def create_or_alter_table(conn, table_name, json_data):
+    """Creates the table if it doesn't exist or alters it to add new columns."""
+    cursor = conn.cursor()
+    cursor.execute(f"PRAGMA table_info({table_name})")
+    existing_columns = {col[1] for col in cursor.fetchall()}
+
+    if not existing_columns:
+        # Table does not exist, create it
+        if not json_data or not isinstance(json_data[0], dict):
+            print("Cannot create table: No valid JSON data to infer schema.")
+            return
+        
+        initial_keys = get_all_unique_keys(json_data)
+        column_definitions = []
+        for key in initial_keys:
+            # Basic type inference, can be improved
+            sample_value = None
+            for item in json_data:
+                if key in item and item[key] is not None:
+                    sample_value = item[key]
+                    break
+            
+            if isinstance(sample_value, int):
+                data_type = "INTEGER"
+            elif isinstance(sample_value, float):
+                data_type = "REAL"
+            elif isinstance(sample_value, bool):
+                data_type = "INTEGER"
+            else: # Default to TEXT for strings, nulls, or complex types
+                data_type = "TEXT"
+            column_definitions.append(f'"{key}" {data_type} NULL') # Allow NULLs
+        
+        create_sql = f"CREATE TABLE IF NOT EXISTS \"{table_name}\" ({', '.join(column_definitions)})"
+        try:
+            conn.execute(create_sql)
+            print(f"Table '{table_name}' created with initial schema.")
+        except sqlite3.Error as e:
+            print(f"Error creating table '{table_name}': {e}")
+    else:
+        # Table exists, check for new columns
+        if not json_data or not isinstance(json_data[0], dict):
+            print(f"Skipping schema check for '{table_name}': No valid JSON data.")
+            return
+
+        current_file_keys = get_all_unique_keys(json_data)
+        new_columns = [key for key in current_file_keys if key not in existing_columns]
+        
+        for new_col in new_columns:
+            # Infer type for the new column (similar to initial creation)
+            sample_value = None
+            for item in json_data:
+                if new_col in item and item[new_col] is not None:
+                    sample_value = item[new_col]
+                    break
+            
+            if isinstance(sample_value, int):
+                data_type = "INTEGER"
+            elif isinstance(sample_value, float):
+                data_type = "REAL"
+            elif isinstance(sample_value, bool):
+                data_type = "INTEGER"
+            else:
+                data_type = "TEXT"
+            
+            alter_sql = f"ALTER TABLE \"{table_name}\" ADD COLUMN \"{new_col}\" {data_type} NULL"
+            try:
+                conn.execute(alter_sql)
+                print(f"Column '{new_col}' added to table '{table_name}'.")
+            except sqlite3.Error as e:
+                print(f"Error adding column '{new_col}' to '{table_name}': {e}")
+
+def ingest_json_to_unified_table(directory):
+    conn = sqlite3.connect(DATABASE_NAME)
+    
+    for filename in os.listdir(directory):
+        if filename.endswith(".json"):
+            filepath = os.path.join(directory, filename)
+            try:
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                
+                # Ensure data is a list of records, even if the file contains a single object
+                if isinstance(data, dict):
+                    data = [data]
+                
+                if not isinstance(data, list):
+                    print(f"Skipping '{filename}': Data is not a list of objects or a single object.")
+                    continue
+
+                # Create or alter table based on the current file's data
+                create_or_alter_table(conn, TARGET_TABLE_NAME, data)
+
+                # Insert data
+                cursor = conn.cursor()
+                if data:
+                    # Get current columns after potential alteration
+                    cursor.execute(f"PRAGMA table_info({TARGET_TABLE_NAME})")
+                    current_columns = [col[1] for col in cursor.fetchall()]
+                    
+                    placeholders = ', '.join(['?' for _ in current_columns])
+                    quoted_columns = ', '.join([f'"{col}"' for col in current_columns])
+                    insert_sql = f"INSERT INTO \"{TARGET_TABLE_NAME}\" ({quoted_columns}) VALUES ({placeholders})"
+                    
+                    for record in data:
+                        # Prepare values, ensuring order matches current_columns and handling missing keys
+                        values = [record.get(col) for col in current_columns]
+                        try:
+                            cursor.execute(insert_sql, values)
+                        except sqlite3.Error as e:
+                            print(f"Error inserting record from '{filename}': {e} - Record: {record}")
+                    conn.commit()
+                    print(f"Successfully ingested data from '{filename}' into '{TARGET_TABLE_NAME}'.")
+            except json.JSONDecodeError:
+                print(f"Error decoding JSON from '{filename}'. Skipping.")
+            except FileNotFoundError:
+                print(f"File not found: '{filepath}'. Skipping.")
+            except Exception as e:
+                print(f"An unexpected error occurred with '{filename}': {e}")
+
+    conn.close()
+    print("Unified ingestion process completed.")
+
+# --- Execution --- 
+if __name__ == "__main__":
+    # Ensure the directory exists
+    if not os.path.exists(JSON_FILES_DIRECTORY):
+        os.makedirs(JSON_FILES_DIRECTORY)
+        print(f"Created directory: {JSON_FILES_DIRECTORY}")
+
+    # Example: Create dummy JSON files for testing
+    # You would replace this with your actual JSON files
+    dummy_data_1 = [
+        {"id": 1, "name": "Alice", "age": 30},
+        {"id": 2, "name": "Bob", "age": 25}
+    ]
+    dummy_data_2 = [
+        {"id": 3, "name": "Charlie", "city": "New York"},
+        {"id": 4, "name": "David", "city": "Los Angeles", "occupation": "Engineer"}
+    ]
+    dummy_data_3 = [
+        {"id": 5, "name": "Eve", "age": 28, "occupation": "Doctor"}
+    ]
+
+    with open(os.path.join(JSON_FILES_DIRECTORY, "file1.json"), "w") as f:
+        json.dump(dummy_data_1, f, indent=2)
+    with open(os.path.join(JSON_FILES_DIRECTORY, "file2.json"), "w") as f:
+        json.dump(dummy_data_2, f, indent=2)
+    with open(os.path.join(JSON_FILES_DIRECTORY, "file3.json"), "w") as f:
+        json.dump(dummy_data_3, f, indent=2)
+    print("Created dummy JSON files for demonstration.")
+
+    ingest_json_to_unified_table(JSON_FILES_DIRECTORY)
+```
+
+**Explanation of the Strategy:**
+
+*   **Single Table:** All JSON records will be inserted into one table, `all_json_data` (or your chosen name).
+*   **Schema Evolution:** The `create_or_alter_table` function is the core of handling schema variations. It first checks if the table exists. If not, it creates it based on the keys found in the *first* JSON data it processes. If the table *does* exist, it compares the keys from the current JSON file against the table's schema. Any new keys found trigger an `ALTER TABLE ADD COLUMN` command.
+*   **Nullable Columns:** All columns, including newly added ones, are defined as `NULL`able. This is essential because when a new column is added, existing rows won't have a value for it, and `NULL` is the appropriate placeholder.
+*   **Type Inference:** A basic type inference is performed. For new columns, it attempts to guess the data type based on the first non-null value it encounters in the current file. You might want to refine this for more complex scenarios (e.g., handling dates, nested structures if you flatten them first).
+*   **Data Insertion:** When inserting data, the script retrieves the *current* list of columns in the table (after any potential alterations). It then constructs an `INSERT` statement using these columns and prepares the values from the JSON record. Crucially, `record.get(col)` is used, which returns `None` if a key is missing in a specific JSON record, ensuring that `NULL` is inserted into the database for that column in that row.
+
+This approach ensures that you don't lose data and that your single table can accommodate the evolving schema of your incoming JSON files.
