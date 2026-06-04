@@ -160,6 +160,17 @@ class DatabaseHandler:
         except OSError:  # Catch file IO problems
             return SQLiteResponse(pd.DataFrame(), DB_READ_ERROR)
 
+    def load_table(self, table_name: str) -> pd.DataFrame:
+        try:
+            sqlite_db = f"sqlite:///{self._db_path}"
+            engine = create_engine(sqlite_db, echo=True)
+            with engine.connect() as conn:
+                df = pd.read_sql_table(table_name, conn)
+                return df
+        except Exception as e:
+            print(f"Error loading table {table_name}: {e}")
+            return pd.DataFrame()
+
     def write_logme(self, df: pd.DataFrame) -> int:
         # @todo Create a backup before writing
         # drop table logmeBK if exists;

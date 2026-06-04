@@ -34,6 +34,8 @@ logger = logging.getLogger(__name__)
 
 def source_trigger(src: str = None, amount: int = 0, browser: str = "chrome", offline: bool = False) -> None:
     from logme.ingestors.InstagramIngestor import InstagramIngestor
+    from logme.ingestors.ATimeLoggerIngestor import ATimeLoggerIngestor
+    from logme.processors.ATimeLoggerProcessor import ATimeLoggerProcessor
     from logme.processors import Multi_TimerProcessor
     from logme.connectors import GoogleDrive
     from logme.connectors import Dropbox
@@ -58,22 +60,24 @@ def source_trigger(src: str = None, amount: int = 0, browser: str = "chrome", of
 
     conf = u.get_source_conf(src, src)
     conf["browser"] = browser
-    conf_raw_to_l1 = u.get_source_conf(src, f"{src}_raw_to_l1")
     match (src):
         case "aTimeLogger":
             logger.info("get aTimeLogger data")
             if conf["connection"] == "GoogleDrive":
                 downloader = GoogleDrive.GoogleDriveDownloader(src, dst)
-                tmp = downloader.download()
-                exit(0)
                 return downloader.download(src, dst)
-            if conf["connection"] == "api":
-                downloader = ATimeLoggerIngestor.ATimeLoggerApi(src, dst)
-                # Download json with aTimeLogger api
-                downloader.download()
+            elif conf["connection"] == "api":
+                if not offline:
+                    ingestor = ATimeLoggerIngestor(src, dst, conf)
+                    # Download json with aTimeLogger api
+                    ingestor.download()
                 # Process downloaded with pandas
-            processor = ATimeLoggerIngestor.get_ProcessATimeLoggerApi(dst)
-            result = processor.process(src, dst)
+                processor = ATimeLoggerProcessor(src)
+                result = processor.process(dst)
+            else:
+                msg = f"Connection of type {conf['connection']} is not yet implemented"
+                logger.info(msg)
+                raise ValueError(msg)
         case "duolingo":
             logger.info(f"Downloading {src}")
             languages_processor = Duolingo.DuolingoApi(src, dst)
