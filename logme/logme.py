@@ -39,6 +39,7 @@ def source_trigger(src: str = None, amount: int = 0, browser: str = "chrome", of
     from logme.processors import Multi_TimerProcessor
     from logme.connectors import GoogleDrive
     from logme.connectors import Dropbox
+    from logme.ingestors.KoreaderStatistics import KoreaderStatistics
     
     logger.info(f"source_trigger src: {src}, browser: {browser}, offline: {offline}")
 
@@ -84,12 +85,8 @@ def source_trigger(src: str = None, amount: int = 0, browser: str = "chrome", of
             # downloader.process(skills)
         case "koreaderStatistics":
             logger.info("Process koreader statistic file")
-            if conf["connection"] == "GoogleDrive":
-                downloader = GoogleDrive(src, dst)
-                # return downloader.download(src, dst)
-            if conf["connection"] == "file_system":
-                processor = KoreaderStatistics(src, dst)
-                processor.process()
+            processor = KoreaderStatistics(src, dst, conf)
+            processor.process()
         case "koreaderClipping":
             logger.info("Process highlighted texts in Koreader")
             processor = KoreaderClippingIngest(src, dst)
